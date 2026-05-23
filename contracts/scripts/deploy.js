@@ -1,4 +1,5 @@
 const fs = require("fs");
+const hre = require("hardhat");
 const path = require("path");
 
 async function main() {

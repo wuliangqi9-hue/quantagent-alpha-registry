@@ -6,7 +6,8 @@ project shippable during the hackathon.
 ## Architecture Thesis
 
 QuantAgent Alpha Registry should be a simple, reliable, public demo of an
-explainable AI trading agent with on-chain decision proofs.
+explainable AI trading agent with on-chain identity, validation, and reputation
+proofs.
 
 It should not start as a distributed trading platform. The first version should
 be a deployable web app plus a lightweight API and one Mantle contract.
@@ -19,7 +20,11 @@ public web dashboard
     -> factor-engine
     -> strategy-selector
     -> explanation builder
-    -> Mantle signal recorder
+    -> Byreal / RealClaw execution-intent adapter
+    -> Mantle agent registry
+      -> Identity: agent NFT / agentURI
+      -> Validation: signal proof request
+      -> Reputation: settlement feedback
   -> Mantle explorer link
 ```
 
@@ -33,7 +38,9 @@ Recommended stack:
 - FastAPI or similar lightweight HTTP framework;
 - local CSV/JSON snapshots for offline demo mode;
 - simple in-memory request flow;
-- direct contract call through a wallet key or prepared transaction path.
+- direct contract call through a wallet key or prepared transaction path;
+- dynamic gas estimation from the current block;
+- optional protected/private RPC endpoint for MEV-sensitive broadcasts.
 
 Avoid for the MVP:
 
@@ -89,7 +96,15 @@ LLM-generated prose can be added after deterministic outputs are stable.
 
 ## On-chain Scope
 
-The first contract records decision proofs only. It should emit an event with:
+The first contract is an ERC-8004-inspired combined registry. It keeps the
+hackathon implementation shippable while exposing the three concepts judges
+care about:
+
+- `Identity Registry`: register an agent identity NFT and `agentURI`;
+- `Validation Registry`: request validation for each signal hash and proof URI;
+- `Reputation Registry`: write feedback after the signal is settled.
+
+The signal proof event includes:
 
 - signal hash;
 - symbol;
@@ -119,5 +134,6 @@ The dashboard should show:
 - market regime;
 - selected strategy;
 - confidence and risk warnings;
+- Agent Passport: identity, validation path, reputation score, Byreal mode;
 - benchmark chart;
 - Mantle transaction proof.

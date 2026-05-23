@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useState, type CSSProperties } from "react";
 import {
   Bar,
   BarChart,
@@ -58,6 +58,9 @@ type Analysis = {
   contractAddress: string | null;
   explorerBase: string;
   proofMode: string;
+  agent: AgentStatus;
+  byreal: ByrealStatus;
+  executionIntent: ExecutionIntent;
   decisionReport: Record<string, unknown>;
 };
 
@@ -69,6 +72,62 @@ type ChainResult = {
   explorerUrl?: string | null;
   message?: string;
   error?: string;
+  agentId?: number | null;
+  registryLayer?: string;
+  proofURI?: string | null;
+  privateMempoolConfigured?: boolean;
+};
+
+type AgentStatus = {
+  configured?: boolean;
+  identityRegistered?: boolean;
+  agentId?: number | null;
+  contractAddress?: string | null;
+  proofMode?: string;
+  privateMempoolConfigured?: boolean;
+  owner?: string;
+  agentURI?: string;
+  reputation?: {
+    count: number;
+    summaryValue: number;
+    decimals: number;
+    score: number;
+  };
+  message?: string;
+  error?: string;
+};
+
+type ByrealStatus = {
+  configured: boolean;
+  mode: string;
+  apiBase?: string | null;
+  skills: string[];
+  message: string;
+};
+
+type ExecutionIntent = {
+  provider: string;
+  mode: string;
+  asset: string;
+  action: string;
+  sizeHint: string;
+  strategyId: string;
+  confidence: number;
+  slippagePolicy: string;
+  mevPolicy: string;
+  notes: string[];
+};
+
+type Settlement = {
+  signalHash: string;
+  symbol: string;
+  direction: string;
+  entryPrice: number;
+  exitPrice: number;
+  pnlBps: number;
+  confidence: number;
+  score: number;
+  settlementHash: string;
 };
 
 const shortHash = (value: string | null | undefined) =>
@@ -86,8 +145,11 @@ export default function App() {
   const [mode, setMode] = useState<"auto" | "live" | "offline-demo">("auto");
   const [loading, setLoading] = useState(false);
   const [recording, setRecording] = useState(false);
+  const [settling, setSettling] = useState(false);
   const [data, setData] = useState<Analysis | null>(null);
   const [chain, setChain] = useState<ChainResult | null>(null);
+  const [settlement, setSettlement] = useState<Settlement | null>(null);
+  const [settlementChain, setSettlementChain] = useState<ChainResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -95,6 +157,8 @@ export default function App() {
     setLoading(true);
     setError(null);
     setChain(null);
+    setSettlement(null);
+    setSettlementChain(null);
     try {
       const res = await fetch(`${API_BASE}/analyze`, {
         method: "POST",
@@ -122,12 +186,7 @@ export default function App() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          useLastAnalysis: false,
-          signalHash: data.signalHash,
-          symbol: data.symbol,
-          strategyId: data.selection.strategyId,
-          modelVersion: data.modelVersion,
-          mode: data.mode,
+          useLastAnalysis: true,
         }),
       });
       if (!res.ok) throw new Error(`Record failed (${res.status})`);
@@ -140,6 +199,27 @@ export default function App() {
     }
   }, [data]);
 
+  const settleSignal = useCallback(async () => {
+    if (!data) return;
+    setSettling(true);
+    setError(null);
+    try {
+      const res = await fetch(`${API_BASE}/settle`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ useLastAnalysis: true }),
+      });
+      if (!res.ok) throw new Error(`Settle failed (${res.status})`);
+      const payload = await res.json();
+      setSettlement(payload.settlement);
+      setSettlementChain(payload.chain);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unknown error");
+    } finally {
+      setSettling(false);
+    }
+  }, [data]);
+
   const factors =
     data?.factorSummary.factors
       .filter((f) => f.score != null)
@@ -147,6 +227,17 @@ export default function App() {
 
   const prices = data?.selection.benchmarkChart.prices ?? [];
   const latestPrice = prices.length ? prices[prices.length - 1].close : null;
+  const agentScore = Math.max(
+    0,
+    Math.min(
+      100,
+      data?.agent?.reputation
+        ? 50 + data.agent.reputation.score * 5
+        : data
+          ? Math.round(data.selection.confidence * 100)
+          : 0,
+    ),
+  );
 
   const copyReport = useCallback(async () => {
     if (!data) return;
@@ -185,6 +276,9 @@ export default function App() {
           <button className="secondary" onClick={recordSignal} disabled={!data || recording}>
             {recording ? "Recording…" : "Record on Mantle"}
           </button>
+          <button className="secondary" onClick={settleSignal} disabled={!data || settling}>
+            {settling ? "Settling…" : "Settle Reputation"}
+          </button>
         </div>
       </header>
 
@@ -220,6 +314,51 @@ export default function App() {
 
       {data && (
         <div className="grid">
+          <section className="panel span-12 agent-passport">
+            <div className="agent-core">
+              <div
+                className="agent-orb"
+                style={{ "--score-deg": `${agentScore * 3.6}deg` } as CSSProperties}
+              >
+                <span>{agentScore}</span>
+              </div>
+              <div>
+                <h2>Agent Passport</h2>
+                <p>
+                  ERC-8004-inspired identity, validation request, and reputation feedback loop for the QuantAgent.
+                </p>
+              </div>
+            </div>
+            <div className="passport-grid">
+              <div className="passport-item">
+                <span>Identity</span>
+                <strong>{data.agent.identityRegistered ? `Agent #${data.agent.agentId}` : data.agent.agentId ? `Agent #${data.agent.agentId} pending` : "Not registered"}</strong>
+              </div>
+              <div className="passport-item">
+                <span>Validation layer</span>
+                <strong>{chain?.registryLayer === "identity+validation" ? "Signal proof requested" : "Awaiting signal"}</strong>
+              </div>
+              <div className="passport-item">
+                <span>Reputation</span>
+                <strong>
+                  {data.agent.reputation ? `${data.agent.reputation.count} feedback · ${data.agent.reputation.score.toFixed(4)}` : settlement ? `${settlement.score / 10000} simulated` : "No feedback yet"}
+                </strong>
+              </div>
+              <div className="passport-item">
+                <span>Byreal / RealClaw</span>
+                <strong>{data.byreal.mode}</strong>
+              </div>
+              <div className="passport-item">
+                <span>Execution intent</span>
+                <strong>{data.executionIntent.action}</strong>
+              </div>
+              <div className="passport-item">
+                <span>MEV posture</span>
+                <strong>{chain?.privateMempoolConfigured || data.agent.privateMempoolConfigured ? "Private RPC ready" : "Public RPC / configure private"}</strong>
+              </div>
+            </div>
+          </section>
+
           <section className="panel span-5">
             <h2>Factor Summary</h2>
             <ResponsiveContainer width="100%" height={280}>
@@ -357,6 +496,34 @@ export default function App() {
             {chain?.message && (
               <p style={{ color: "var(--muted)", fontSize: "0.85rem" }}>{chain.message}</p>
             )}
+            {chain?.registryLayer && (
+              <div className="metric">
+                <span>Registry path</span>
+                <strong style={{ fontSize: "0.75rem" }}>{chain.registryLayer}</strong>
+              </div>
+            )}
+            {chain?.proofURI && (
+              <div className="metric">
+                <span>Validation proof URI</span>
+                <strong style={{ fontSize: "0.75rem" }}>{shortHash(chain.proofURI)}</strong>
+              </div>
+            )}
+            {settlement && (
+              <>
+                <h2 style={{ marginTop: 16 }}>Reputation settlement</h2>
+                <div className="metric">
+                  <span>PnL bps</span>
+                  <strong>{settlement.pnlBps.toFixed(2)}</strong>
+                </div>
+                <div className="metric">
+                  <span>Feedback score</span>
+                  <strong>{settlement.score}</strong>
+                </div>
+                <div className={`proof-state ${settlementChain?.recorded ? "recorded" : "demo"}`}>
+                  {settlementChain?.recorded ? "Reputation written" : "Reputation demo"}
+                </div>
+              </>
+            )}
             {chain?.error && <p className="error">{chain.error}</p>}
             <button className="secondary full-width" onClick={copyReport}>
               {copied ? "Decision report copied" : "Copy decision report JSON"}
@@ -371,7 +538,7 @@ export default function App() {
             <div className="posture-grid">
               <p>Public demo URL required. Localhost is development-only and must not be submitted.</p>
               <p>Backtests are workflow evidence. The project does not claim guaranteed returns.</p>
-              <p>Offline data mode is an intentional fallback for reliable judge demos.</p>
+              <p>Offline data mode is a fallback, but final live judging should use Mantle mainnet configuration.</p>
             </div>
           </section>
         </div>

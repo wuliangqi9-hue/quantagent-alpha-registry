@@ -15,6 +15,8 @@ Use this checklist before recording the demo video and submitting to DoraHacks.
 - Strategy selector uses existing benchmark evidence.
 - The app can run in live mode and offline demo mode.
 - The signal hash links the off-chain decision report to the on-chain record.
+- ERC-8004-inspired identity, validation, and reputation are visible in code and UI.
+- Gas fees are estimated dynamically, not hardcoded for live transactions.
 - The Mantle transaction or contract is visible from the UI.
 
 ## Mantle Contribution
@@ -22,6 +24,7 @@ Use this checklist before recording the demo video and submitting to DoraHacks.
 - The proof layer is deployed or demonstrated on Mantle.
 - The README explains why Mantle is part of the system, not decoration.
 - The transaction/event trail is easy for judges to inspect.
+- Byreal/RealClaw adapter status is visible, even when credentials are not configured.
 
 ## Product Completeness
 
@@ -30,6 +33,7 @@ Use this checklist before recording the demo video and submitting to DoraHacks.
 - Demo flow finishes in under 3 minutes.
 - No broken buttons or empty states in the main path.
 - Charts are readable on a laptop screen.
+- Agent Passport can be understood in 30 seconds.
 - The UI has a fallback state when live APIs fail.
 
 ## Research Credibility
@@ -44,6 +48,7 @@ Use this checklist before recording the demo video and submitting to DoraHacks.
 - Open-source repo link.
 - Public app URL.
 - Contract address or Mantle explorer transaction.
+- Agent ID, validation request, and reputation feedback evidence if running final on-chain mode.
 - Demo video.
 - README with setup instructions.
 - Architecture diagram.

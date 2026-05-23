@@ -12,7 +12,8 @@ research-grounded agent can:
 - compute meaningful crypto factors;
 - select a strategy based on market state and historical evidence;
 - explain its reasoning in trader-friendly language;
-- publish a verifiable decision record on Mantle.
+- publish a verifiable decision record on Mantle;
+- maintain an agent identity, validation request trail, and reputation feedback loop.
 
 ## Target Tracks
 
@@ -47,25 +48,28 @@ Optional extension only if time allows:
    - risk warnings;
    - historical benchmark summary.
 8. The app writes a compact signal record to Mantle:
+   - `agentId`
    - `signalHash`
    - `symbol`
    - `strategyId`
    - `modelVersion`
    - `timestamp`
-9. The UI links to the Mantle explorer transaction.
+9. The app settles the signal into reputation feedback.
+10. The UI links to the Mantle explorer transaction.
 
 ## MVP Lock
 
-The first public version must include only four core systems:
+The first public version must include five core systems:
 
 - factor engine;
 - strategy selector;
 - dashboard;
-- Mantle signal-recording contract.
+- Mantle agent registry contract;
+- reputation settlement loop.
 
 Everything else is optional until this loop works end to end. Optional items
-include ERC-8004 integration, wallet automation, live execution, zk proofs,
-private mempools, and multi-agent orchestration.
+include wallet automation, live execution, zk proof generation, full Byreal
+execution, and multi-agent orchestration.
 
 ## Decision Record Shape
 
@@ -75,11 +79,13 @@ compact proof of a decision, not the full factor matrix.
 Recommended payload:
 
 - `signalHash`: hash of the full off-chain decision report;
+- `agentId`: registered agent identity;
 - `symbol`: selected asset or token;
 - `strategyId`: selected strategy;
 - `modelVersion`: factor and selector version;
 - `timestamp`: block or backend decision time;
 - `mode`: `live` or `offline-demo`.
+- `proofURI` / `proofHash`: validation anchor for future zk or provenance proof.
 
 ## Success Criteria
 
@@ -89,6 +95,7 @@ Engineering:
 - Demo can run in both live-data mode and offline sample-data mode.
 - Reproducible backend service or documented local run path.
 - At least one verified Mantle contract or transaction flow.
+- Agent identity, validation request, and reputation feedback are demonstrable.
 - Clear README with setup, architecture, and demo instructions.
 - Open-source code for the app, factor pipeline, strategy selector, and contract.
 
@@ -112,8 +119,8 @@ Research:
 - Do not attempt full autonomous treasury management in the MVP.
 - Do not build every sponsor integration at once.
 - Do not introduce heavy infrastructure such as message queues or analytical databases unless the MVP truly needs them.
-- Do not over-focus on ERC-8004, zkTLS, TEE, or private mempools unless official
-  requirements make them necessary.
+- Do not over-focus on zkTLS, TEE, or full private mempool integration unless
+  official requirements make them necessary.
 - Do not submit a pure research report without an interactive demo.
 
 ## Demo Reliability Requirements
@@ -133,8 +140,8 @@ transaction costs, slippage, and changing market regimes.
 
 QuantAgent is a bridge between quantitative research and transparent Web3
 execution. It does not ask users to trust a black-box trading bot. Instead, it
-shows the factors, explains the strategy choice, and records the decision trail
-on Mantle.
+shows the factors, explains the strategy choice, and records the decision,
+validation, and reputation trail on Mantle.
 
 
 

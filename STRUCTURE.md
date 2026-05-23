@@ -64,6 +64,7 @@ Current screens:
 
 - asset and data-mode controls;
 - factor radar and factor bar chart;
+- Agent Passport with identity, validation, reputation, and Byreal status;
 - market regime and selected strategy panel;
 - benchmark chart with caveats;
 - risk warning panel;
@@ -83,7 +84,9 @@ Responsibilities:
 - call the factor engine;
 - call the strategy selector;
 - build the decision report and signal hash;
+- expose Byreal/RealClaw execution intent;
 - submit or clearly label Mantle proof mode.
+- settle a signal and write reputation feedback when configured.
 
 Public API endpoints:
 
@@ -91,6 +94,10 @@ Public API endpoints:
 - `GET /api/assets`
 - `POST /api/analyze`
 - `POST /api/record-signal`
+- `GET /api/agent`
+- `POST /api/agent/register`
+- `GET /api/byreal/status`
+- `POST /api/settle`
 - `GET /api/demo/sample`
 
 Unprefixed routes also exist for local development and FastAPI docs.
@@ -142,16 +149,19 @@ Outputs:
 
 ### `contracts`
 
-Mantle signal-recording layer.
+Mantle agent registry layer.
 
-MVP contract function:
+Core contract functions:
 
 ```solidity
-recordSignal(bytes32 signalHash, string symbol, string strategyId, string modelVersion, string mode)
+register(string agentURI)
+recordSignalForAgent(uint256 agentId, bytes32 signalHash, string symbol, string strategyId, string modelVersion, string mode, address validatorAddress, string proofURI, bytes32 proofHash)
+giveFeedback(uint256 agentId, int128 value, uint8 valueDecimals, string tag1, string tag2, string endpoint, string feedbackURI, bytes32 feedbackHash)
 ```
 
-The contract emits `SignalRecorded` and does not custody funds or execute trades.
-It exists to prove decision traceability.
+The contract emits identity, validation, and reputation events and does not
+custody funds or execute trades. It exists to prove decision traceability and
+agent accountability.
 
 ### `data/sample`
 
@@ -179,7 +189,8 @@ Final submission materials:
 
 1. Deploy the Docker single-service app to a public URL.
 2. Deploy `SignalRegistry` to Mantle Sepolia or the official required network.
-3. Configure `SIGNAL_REGISTRY_ADDRESS` and `MANTLE_PRIVATE_KEY` in the public service.
+3. Register the agent and configure `AGENT_ID`, `VALIDATOR_ADDRESS`, `SIGNAL_REGISTRY_ADDRESS`, and `MANTLE_PRIVATE_KEY` in the public service.
 4. Record at least one real signal and save the Mantle explorer link.
-5. Record the 2-3 minute demo video.
-6. Submit public app URL, repository, video, and contract/explorer link.
+5. Settle one signal and save the reputation feedback evidence.
+6. Record the 2-3 minute demo video.
+7. Submit public app URL, repository, video, and contract/explorer link.

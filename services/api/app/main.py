@@ -17,10 +17,18 @@ sys.path.insert(0, str(ROOT / "packages" / "strategy-selector"))
 from factor_engine.service import compute_factor_summary  # noqa: E402
 from strategy_selector.selector import select_strategy  # noqa: E402
 
-from .chain import mock_record, record_signal_on_chain
-from .config import CHAIN_CONFIGURED, CONTRACT_ADDRESS, EXPLORER_BASE, SUPPORTED_ASSETS
+from .byreal import build_execution_intent, byreal_status
+from .chain import (
+    get_agent_status,
+    mock_record,
+    record_signal_on_chain,
+    register_agent_on_chain,
+    submit_reputation_feedback,
+)
+from .config import AGENT_ID, CHAIN_CONFIGURED, CONTRACT_ADDRESS, EXPLORER_BASE, SUPPORTED_ASSETS
 from .data_loader import load_market_data, load_offline
 from .decision import build_decision_report, signal_hash
+from .reputation import settle_last_signal
 
 app = FastAPI(
     title="QuantAgent Alpha Registry API",
@@ -53,6 +61,15 @@ class RecordSignalRequest(BaseModel):
     mode: str | None = None
 
 
+class AgentRegisterRequest(BaseModel):
+    agentURI: str | None = None
+
+
+class SettleRequest(BaseModel):
+    useLastAnalysis: bool = True
+    exitPrice: float | None = None
+
+
 @app.get("/health")
 @app.get("/api/health", include_in_schema=False)
 def health() -> dict[str, Any]:
@@ -60,8 +77,11 @@ def health() -> dict[str, Any]:
         "status": "ok",
         "contractConfigured": bool(CONTRACT_ADDRESS),
         "walletConfigured": CHAIN_CONFIGURED,
+        "agentId": AGENT_ID or None,
+        "agentConfigured": AGENT_ID > 0,
         "proofMode": "real-onchain" if CHAIN_CONFIGURED else "demo-proof",
         "supportedAssets": SUPPORTED_ASSETS,
+        "byreal": byreal_status(),
         "apiPrefixes": ["", "/api"],
     }
 
@@ -118,6 +138,9 @@ async def analyze(body: AnalyzeRequest) -> dict[str, Any]:
         "explorerBase": EXPLORER_BASE,
         "contractAddress": CONTRACT_ADDRESS or None,
         "proofMode": "real-onchain" if CHAIN_CONFIGURED else "demo-proof",
+        "agent": get_agent_status(),
+        "byreal": byreal_status(),
+        "executionIntent": build_execution_intent({"symbol": symbol, "selection": selection}),
     }
     global _last_analysis
     _last_analysis = result
@@ -157,7 +180,8 @@ async def record_signal(body: RecordSignalRequest) -> dict[str, Any]:
         mode = body.mode or "offline-demo"
 
     try:
-        chain_result = record_signal_on_chain(sig, symbol, strategy_id, model_version, mode)
+        report = payload.get("decisionReport") if body.useLastAnalysis else None
+        chain_result = record_signal_on_chain(sig, symbol, strategy_id, model_version, mode, report)
         if not chain_result.get("recorded") and not CHAIN_CONFIGURED:
             chain_result = mock_record(sig, symbol, strategy_id, model_version, mode)
     except Exception as exc:
@@ -183,3 +207,65 @@ async def record_signal(body: RecordSignalRequest) -> dict[str, Any]:
             }
 
     return {"signalHash": sig, "chain": chain_result}
+
+
+@app.get("/agent")
+@app.get("/api/agent", include_in_schema=False)
+def agent_status() -> dict[str, Any]:
+    return get_agent_status()
+
+
+@app.post("/agent/register")
+@app.post("/api/agent/register", include_in_schema=False)
+def agent_register(body: AgentRegisterRequest) -> dict[str, Any]:
+    try:
+        return register_agent_on_chain(body.agentURI)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.get("/byreal/status")
+@app.get("/api/byreal/status", include_in_schema=False)
+def byreal_adapter_status() -> dict[str, Any]:
+    return byreal_status()
+
+
+@app.post("/settle")
+@app.post("/api/settle", include_in_schema=False)
+async def settle(body: SettleRequest) -> dict[str, Any]:
+    if body.useLastAnalysis:
+        if not _last_analysis:
+            raise HTTPException(status_code=400, detail="Run /analyze first.")
+        payload = _last_analysis
+    else:
+        raise HTTPException(status_code=400, detail="Only useLastAnalysis settlement is supported in this MVP.")
+
+    try:
+        settlement = settle_last_signal(payload, body.exitPrice)
+        chain_result = submit_reputation_feedback(
+            settlement["score"],
+            signal_hash=payload["signalHash"],
+            tag1="pnl-bps",
+            tag2=payload["selection"]["signalDirection"],
+            feedback_payload=settlement,
+        )
+    except Exception as exc:
+        settlement = settle_last_signal(payload, body.exitPrice)
+        if CHAIN_CONFIGURED:
+            chain_result = {
+                "recorded": False,
+                "mock": False,
+                "proofMode": "real-onchain",
+                "error": str(exc),
+                "message": "Configured reputation write failed. Check AGENT_ID, wallet permission, and contract address.",
+            }
+        else:
+            chain_result = {
+                "recorded": False,
+                "mock": True,
+                "proofMode": "demo-proof",
+                "signalHash": payload["signalHash"],
+                "message": "Demo settlement calculated locally. Configure Mantle credentials and AGENT_ID to write reputation feedback.",
+            }
+
+    return {"settlement": settlement, "chain": chain_result}

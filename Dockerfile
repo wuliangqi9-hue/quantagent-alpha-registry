@@ -20,7 +20,7 @@ RUN pip install --no-cache-dir -r /tmp/requirements.txt
 COPY services ./services
 COPY packages ./packages
 COPY data ./data
-COPY contracts/artifacts/SignalRegistry.json ./contracts/artifacts/SignalRegistry.json
+COPY contracts/artifacts ./contracts/artifacts
 COPY --from=web-build /app/apps/web/dist ./apps/web/dist
 
 EXPOSE 8000

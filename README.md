@@ -8,8 +8,9 @@ on-chain auditable AI trading agent on Mantle.
 - **Factor engine** — adapted from `crypto_factor_module` (market, derivative, on-chain factors)
 - **Strategy selector** — SuperTrend / Bollinger / MACD+Bollinger with regime classification
 - **API** — FastAPI with live Binance fallback to `data/sample/`
-- **Dashboard** — React + Recharts factor radar, benchmark chart, Mantle proof panel
-- **Contract** — `SignalRegistry.sol` records compact decision hashes on Mantle
+- **Dashboard** — React + Recharts factor radar, benchmark chart, Agent Passport, Mantle proof panel
+- **Contract** — `SignalRegistry.sol` provides an ERC-8004-inspired identity, validation, and reputation registry
+- **Byreal adapter** — execution-intent layer for RealClaw/Byreal routing, with safe simulation fallback
 
 ## Why it is different
 
@@ -19,6 +20,7 @@ decision trail:
 - factor scores and strategy reasoning are generated off-chain;
 - the decision report is hashed;
 - the hash and metadata are recorded through a Mantle proof layer;
+- a registered agent identity can request validation and receive reputation feedback;
 - the UI keeps risk caveats and proof mode visible.
 
 ## Architecture
@@ -31,7 +33,10 @@ flowchart LR
   C --> E["Strategy selector"]
   C --> F["Decision report + hash"]
   F --> G["SignalRegistry on Mantle"]
-  G --> H["Mantle Explorer proof"]
+  G --> H["Identity Registry: agent NFT"]
+  G --> I["Validation Registry: signal proof request"]
+  G --> J["Reputation Registry: settlement feedback"]
+  G --> K["Mantle Explorer proof"]
 ```
 
 ## Quick start
@@ -74,6 +79,10 @@ under `/api/*`.
 | `GET /api/assets` | BTC, ETH, SOL |
 | `POST /api/analyze` | Factors + strategy + decision report |
 | `POST /api/record-signal` | Mantle proof or explicit demo-mode proof |
+| `GET /api/agent` | Agent identity and reputation status |
+| `POST /api/agent/register` | Register an ERC-8004-inspired agent identity |
+| `GET /api/byreal/status` | Byreal / RealClaw adapter status |
+| `POST /api/settle` | Compute PnL feedback and write reputation when configured |
 | `GET /api/demo/sample` | Sample data preview |
 
 ## Mantle contract
@@ -89,9 +98,19 @@ npm run deploy:sepolia
 Copy `.env.example` to root `.env`, then set the deployed address as
 `SIGNAL_REGISTRY_ADDRESS`.
 
+After deployment, call `POST /api/agent/register`, read the `Registered` event
+for the new `agentId`, then set `AGENT_ID` and `VALIDATOR_ADDRESS`. With those
+configured, `POST /api/record-signal` uses the identity + validation path
+instead of the legacy signal recorder.
+
 Without `SIGNAL_REGISTRY_ADDRESS` and `MANTLE_PRIVATE_KEY`, the app stays in
-demo-proof mode. This keeps the judge flow reliable, but the final submission
-should include at least one real Mantle transaction or contract address.
+demo-proof mode. This keeps the judge flow reliable, but the final judged
+submission must disable mock-only posture and include a real Mantle contract,
+agent identity, validation request, or explorer transaction.
+
+Set `PRIVATE_MEMPOOL_RPC_URL` when using a protected RPC provider. The API will
+prefer that endpoint for transaction broadcasts, while still using dynamic gas
+estimation instead of hardcoded gas values.
 
 ## Public deployment
 
