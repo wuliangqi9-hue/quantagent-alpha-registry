@@ -9,6 +9,7 @@ deployment.
 - Offline BTC, ETH, and SOL demo snapshots.
 - Live Binance data path with offline fallback.
 - Strategy selector with regime classification.
+- Strategy selector now includes paper-inspired AlphaGPT formula fields, FinMem reputation guardrails, and QuantAgent settlement reflection hooks.
 - Benchmark evidence and risk caveats.
 - FastAPI backend with `/api/*` routes.
 - React dashboard with factor charts, Agent Passport, benchmark chart, risk panel, and proof panel.
@@ -19,6 +20,7 @@ deployment.
 - Reputation settlement endpoint for post-signal feedback.
 - Docker single-service deployment path.
 - DoraHacks pitch, demo outline, and final checklist.
+- Sanitized FinMem and QuantAgent source snapshots under `references/papers/` for future architecture extraction.
 
 ## Not Yet Final
 

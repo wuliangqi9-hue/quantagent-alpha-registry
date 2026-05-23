@@ -143,6 +143,7 @@ Submission-focused docs:
 - [docs/architecture-diagram.md](docs/architecture-diagram.md)
 - [docs/proof-model.md](docs/proof-model.md)
 - [docs/submission-story.md](docs/submission-story.md)
+- [docs/paper-source-integration.md](docs/paper-source-integration.md)
 - [docs/launch-checklist.md](docs/launch-checklist.md)
 - [docs/repo-hygiene.md](docs/repo-hygiene.md)
 - [submissions/dorahacks/pitch.md](submissions/dorahacks/pitch.md)

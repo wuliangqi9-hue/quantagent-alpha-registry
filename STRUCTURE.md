@@ -47,6 +47,10 @@ This document describes the current engineering structure for the hackathon MVP.
     sample/
   experiments/
     README.md
+  references/
+    papers/
+      finmem/
+      quantagent/
   submissions/
     dorahacks/
       pitch.md
@@ -176,6 +180,16 @@ Judge-friendly benchmark provenance and caveats.
 
 The MVP embeds compact benchmark constants in the strategy selector; this folder
 explains where the evidence came from and how it should be presented.
+
+### `references/papers`
+
+Sanitized MIT-licensed source snapshots copied for architecture reference only.
+They are not imported by runtime code.
+
+Current references:
+
+- FinMem source snapshot for memory database, recency/importance scoring, and reflection flow.
+- QuantAgent source snapshot for multi-agent graph structure and analyst/decision-agent split.
 
 ### `submissions/dorahacks`
 
