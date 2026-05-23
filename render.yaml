@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: quantagent-alpha-registry
+    env: docker
+    plan: free
+    envVars:
+      - key: MANTLE_RPC_URL
+        value: https://rpc.sepolia.mantle.xyz
+      - key: MANTLE_CHAIN_ID
+        value: "5003"
+      - key: MANTLE_EXPLORER_BASE
+        value: https://explorer.sepolia.mantle.xyz
