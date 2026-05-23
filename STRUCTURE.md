@@ -32,6 +32,12 @@ This document describes the current engineering structure for the hackathon MVP.
       requirements.txt
       app/
   packages/
+    agent-memory/
+      README.md
+      agent_memory/
+    agent-orchestrator/
+      README.md
+      agent_orchestrator/
     factor-engine/
       README.md
       crypto_factors/
@@ -91,6 +97,7 @@ Responsibilities:
 - expose Byreal/RealClaw execution intent;
 - submit or clearly label Mantle proof mode.
 - settle a signal and write reputation feedback when configured.
+- retrieve FinMem-inspired memory and build QuantAgent-inspired multi-agent context.
 
 Public API endpoints:
 
@@ -102,6 +109,7 @@ Public API endpoints:
 - `POST /api/agent/register`
 - `GET /api/byreal/status`
 - `POST /api/settle`
+- `GET /api/memory`
 - `GET /api/demo/sample`
 
 Unprefixed routes also exist for local development and FastAPI docs.
@@ -150,6 +158,29 @@ Outputs:
 - risk warnings;
 - benchmark summary;
 - chart-ready benchmark data.
+- AlphaGPT-style formula and rationale;
+- FinMem memory summary;
+- QuantAgent multi-agent context.
+
+### `packages/agent-memory`
+
+Production module inspired by FinMem.
+
+Responsibilities:
+
+- persist settlement memories as JSONL;
+- retrieve similar memories by recency, importance, factor similarity, and PnL impact;
+- expose latest PnL and summary fields for strategy reflection.
+
+### `packages/agent-orchestrator`
+
+Production module inspired by QuantAgent's agent graph.
+
+Responsibilities:
+
+- build deterministic indicator, flow, memory, reputation, and risk critic reports;
+- provide structured context to the strategy selector and frontend;
+- keep the multi-agent shape without requiring a heavy graph runtime for the MVP.
 
 ### `contracts`
 

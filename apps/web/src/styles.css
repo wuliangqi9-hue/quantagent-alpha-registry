@@ -228,6 +228,58 @@ button:disabled {
   line-height: 1.3;
 }
 
+.formula-box {
+  margin: 12px 0;
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(94, 234, 212, 0.07);
+  border: 1px solid rgba(94, 234, 212, 0.18);
+}
+
+.formula-box span,
+.agent-report-grid span {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--accent);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.formula-box code {
+  display: block;
+  overflow-wrap: anywhere;
+  font-family: "IBM Plex Mono", monospace;
+  color: var(--text);
+  font-size: 0.78rem;
+}
+
+.formula-box p {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.agent-report-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.agent-report-grid div {
+  min-height: 112px;
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid var(--border);
+}
+
+.agent-report-grid p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
 .span-4 {
   grid-column: span 4;
 }
@@ -261,6 +313,10 @@ button:disabled {
   }
 
   .passport-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .agent-report-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -379,7 +435,8 @@ button:disabled {
 @media (max-width: 760px) {
   .empty-grid,
   .posture-grid,
-  .passport-grid {
+  .passport-grid,
+  .agent-report-grid {
     grid-template-columns: 1fr;
   }
 }

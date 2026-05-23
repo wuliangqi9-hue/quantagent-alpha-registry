@@ -258,6 +258,8 @@ def _build_system_prompt(
     risk_profile: RiskProfileState,
     agent_reputation: dict[str, Any] | None,
     last_settlement_pnl: float | None,
+    memory_context: dict[str, Any] | None = None,
+    multi_agent_context: dict[str, Any] | None = None,
 ) -> str:
     """组装超级融合 System Prompt。
 
@@ -298,6 +300,20 @@ def _build_system_prompt(
             f"The previous strategy settlement PnL was {float(last_settlement_pnl):.2f} bps. "
             "Deeply reflect on why the prior outcome happened and decide whether the strategy should switch, "
             "continue, or reduce confidence."
+        )
+
+    if memory_context:
+        prompt_parts.append(
+            "【FinMem Retrieved Memories】Use these retrieved settlement memories as episodic evidence. "
+            "Prefer strategies that improved reputation under similar factor states and avoid repeating recent loss patterns:\n"
+            + json.dumps(memory_context, ensure_ascii=False, sort_keys=True)
+        )
+
+    if multi_agent_context:
+        prompt_parts.append(
+            "【QuantAgent Multi-Agent Reports】Synthesize the indicator, flow, memory, reputation, and risk-critic reports "
+            "before finalizing the decision:\n"
+            + json.dumps(multi_agent_context, ensure_ascii=False, sort_keys=True)
         )
 
     return "\n\n".join(prompt_parts)
@@ -397,12 +413,50 @@ def _apply_reflection_guardrails(
     return round(confidence, 2), drivers[:5], warnings[:5]
 
 
+def _memory_context_summary(memory_context: dict[str, Any] | None) -> str:
+    if not memory_context:
+        return "No retrieved memory context."
+    summary = memory_context.get("summary", {})
+    retrieved = memory_context.get("retrieved", [])
+    if not summary and not retrieved:
+        return "No retrieved memory context."
+    return (
+        f"FinMem store has {summary.get('count', 0)} records, "
+        f"avg PnL {summary.get('avgPnlBps', 0.0)} bps, "
+        f"latest PnL {summary.get('latestPnlBps')} bps, "
+        f"retrieved memories {len(retrieved)}."
+    )
+
+
+def _apply_memory_guardrails(
+    confidence: float,
+    drivers: list[str],
+    warnings: list[str],
+    memory_context: dict[str, Any] | None,
+) -> tuple[float, list[str], list[str]]:
+    if not memory_context:
+        return confidence, drivers, warnings
+
+    summary = memory_context.get("summary", {})
+    latest_pnl = summary.get("latestPnlBps")
+    avg_pnl = float(summary.get("avgPnlBps") or 0.0)
+    if latest_pnl is not None and float(latest_pnl) < -50:
+        confidence = max(0.35, confidence - 0.08)
+        warnings = [*warnings, "FinMem retrieved a recent material loss; additional confidence haircut applied."]
+    elif avg_pnl > 25 and summary.get("count", 0) >= 2:
+        confidence = min(0.95, confidence + 0.02)
+        drivers = [*drivers, "FinMem retrieved positive average settlement memory for this asset."]
+    return round(confidence, 2), drivers[:6], warnings[:6]
+
+
 def select_strategy(
     symbol: str,
     factor_summary: dict[str, Any],
     ohlcv_df,
     agent_reputation: dict | None = None,
     last_settlement_pnl: float | None = None,
+    memory_context: dict[str, Any] | None = None,
+    multi_agent_context: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     factors = _factor_map(factor_summary)
     recent_vol = float(factor_summary.get("recentVolatility24h") or 0.0)
@@ -431,6 +485,17 @@ def select_strategy(
         warnings,
         last_settlement_pnl,
     )
+    confidence, drivers, warnings = _apply_memory_guardrails(
+        confidence,
+        drivers,
+        warnings,
+        memory_context,
+    )
+
+    if multi_agent_context:
+        critic_warnings = multi_agent_context.get("riskCriticWarnings", [])
+        warnings = [*warnings, *critic_warnings][:8]
+        drivers = [*drivers, "QuantAgent multi-agent context synthesized indicator, flow, memory, and reputation reports."][:8]
 
     bench = STRATEGY_BENCHMARKS[strategy_id]
     regime_key = f"{regime}_sharpe" if f"{regime}_sharpe" in bench else "range_sharpe"
@@ -478,6 +543,8 @@ def select_strategy(
         risk_profile=risk_profile,
         agent_reputation=agent_reputation,
         last_settlement_pnl=last_settlement_pnl,
+        memory_context=memory_context,
+        multi_agent_context=multi_agent_context,
     )
 
     return {
@@ -498,6 +565,8 @@ def select_strategy(
         "riskProfileState": risk_profile,
         "reputationImpact": llm_decision.reputationImpact or reputation_impact,
         "reflection": llm_decision.reflection or reflection,
+        "memoryContextSummary": _memory_context_summary(memory_context),
+        "multiAgentContext": multi_agent_context or {},
         "llmSystemPrompt": system_prompt,
         "llmOutputSchema": LLMStrategyDecision.model_json_schema(),
         "explanation": (

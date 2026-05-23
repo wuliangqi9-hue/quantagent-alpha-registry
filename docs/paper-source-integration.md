@@ -57,12 +57,30 @@ Recommended adaptation:
 - Do not bring benchmark CSV corpora or image assets into the main app.
 - Do not use any `.env` or credential-like files from external repos.
 
-## Immediate Next Implementation Slice
+## Implemented Integration
+
+The reference code has now been fused into production modules instead of being
+left as passive copied source:
+
+- `packages/agent-memory/`: FinMem-inspired JSONL memory store with recency,
+  importance, similarity, and PnL-impact scoring.
+- `packages/agent-orchestrator/`: QuantAgent-inspired deterministic
+  multi-agent context with indicator, flow, memory, reputation, and risk critic
+  reports.
+- `services/api/app/main.py`: `/api/analyze` retrieves memory and builds
+  multi-agent context before strategy selection; `/api/settle` appends a
+  settlement memory; `/api/memory` exposes recent memories.
+- `packages/strategy-selector/strategy_selector/selector.py`: selector now
+  consumes retrieved memories and multi-agent reports in addition to on-chain
+  reputation and latest PnL.
+- `apps/web`: dashboard displays memory count, risk profile, AlphaGPT formula,
+  reflection, and multi-agent reports.
+
+## Next Implementation Slice
 
 The highest-value next slice is:
 
-1. Create `packages/agent-memory/agent_memory/`.
-2. Implement a tiny JSONL memory store inspired by FinMem.
-3. Add `/api/memory` and update `/api/settle` to persist each settlement.
-4. Feed last high-impact memory into `select_strategy(...)`.
-5. Show memory/reflection evidence in the frontend Agent Passport.
+1. Replace deterministic multi-agent reports with optional structured LLM calls.
+2. Add a tiny alpha formula evaluator for the generated `alphaFormula`.
+3. Persist memory to a managed volume or database in public deployment.
+4. Add tests for memory scoring and selector guardrail edge cases.

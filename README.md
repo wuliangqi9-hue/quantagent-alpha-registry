@@ -11,6 +11,8 @@ on-chain auditable AI trading agent on Mantle.
 - **Dashboard** — React + Recharts factor radar, benchmark chart, Agent Passport, Mantle proof panel
 - **Contract** — `SignalRegistry.sol` provides an ERC-8004-inspired identity, validation, and reputation registry
 - **Byreal adapter** — execution-intent layer for RealClaw/Byreal routing, with safe simulation fallback
+- **Agent memory** — FinMem-inspired settlement memory with recency, importance, and PnL-impact retrieval
+- **Multi-agent context** — QuantAgent-inspired indicator, flow, memory, reputation, and risk critic reports
 
 ## Why it is different
 
@@ -83,6 +85,7 @@ under `/api/*`.
 | `POST /api/agent/register` | Register an ERC-8004-inspired agent identity |
 | `GET /api/byreal/status` | Byreal / RealClaw adapter status |
 | `POST /api/settle` | Compute PnL feedback and write reputation when configured |
+| `GET /api/memory` | FinMem-inspired settlement memory summary and recent records |
 | `GET /api/demo/sample` | Sample data preview |
 
 ## Mantle contract
@@ -126,6 +129,8 @@ See [docs/deployment.md](docs/deployment.md). Before submission, verify:
 ```text
 packages/factor-engine/     # crypto_factors + MVP summary
 packages/strategy-selector/ # regime + strategy selection
+packages/agent-memory/      # FinMem-inspired JSONL memory retrieval
+packages/agent-orchestrator/# QuantAgent-inspired multi-agent context
 services/api/               # FastAPI
 apps/web/                   # React dashboard
 contracts/                  # SignalRegistry.sol

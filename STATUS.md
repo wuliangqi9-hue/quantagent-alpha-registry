@@ -10,6 +10,8 @@ deployment.
 - Live Binance data path with offline fallback.
 - Strategy selector with regime classification.
 - Strategy selector now includes paper-inspired AlphaGPT formula fields, FinMem reputation guardrails, and QuantAgent settlement reflection hooks.
+- FinMem-inspired production memory store is connected to `/api/analyze`, `/api/settle`, and `/api/memory`.
+- QuantAgent-inspired production multi-agent context feeds selector and frontend reports.
 - Benchmark evidence and risk caveats.
 - FastAPI backend with `/api/*` routes.
 - React dashboard with factor charts, Agent Passport, benchmark chart, risk panel, and proof panel.

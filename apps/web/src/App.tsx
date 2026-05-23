@@ -53,6 +53,13 @@ type Analysis = {
       markers: { timestamp: string; price: number; side: string }[];
       caveats: string[];
     };
+    alphaFormula?: string;
+    formulaRationale?: string;
+    riskProfileState?: string;
+    reputationImpact?: string;
+    reflection?: string;
+    memoryContextSummary?: string;
+    multiAgentContext?: MultiAgentContext;
     explanation: string;
   };
   contractAddress: string | null;
@@ -61,6 +68,8 @@ type Analysis = {
   agent: AgentStatus;
   byreal: ByrealStatus;
   executionIntent: ExecutionIntent;
+  memory?: MemoryContext;
+  multiAgent?: MultiAgentContext;
   decisionReport: Record<string, unknown>;
 };
 
@@ -128,6 +137,31 @@ type Settlement = {
   confidence: number;
   score: number;
   settlementHash: string;
+};
+
+type MemoryContext = {
+  summary?: {
+    count: number;
+    avgPnlBps: number;
+    winRate: number;
+    latestPnlBps: number | null;
+    lastReflection: string;
+    lastStrategyId?: string;
+  };
+  retrieved?: {
+    strategyId: string;
+    pnlBps: number;
+    memoryScore: number;
+    reflection: string;
+  }[];
+};
+
+type MultiAgentContext = {
+  indicatorReport?: string;
+  flowReport?: string;
+  memoryReport?: string;
+  reputationReport?: string;
+  riskCriticWarnings?: string[];
 };
 
 const shortHash = (value: string | null | undefined) =>
@@ -356,6 +390,18 @@ export default function App() {
                 <span>MEV posture</span>
                 <strong>{chain?.privateMempoolConfigured || data.agent.privateMempoolConfigured ? "Private RPC ready" : "Public RPC / configure private"}</strong>
               </div>
+              <div className="passport-item">
+                <span>Memory</span>
+                <strong>{data.memory?.summary ? `${data.memory.summary.count} records · ${data.memory.summary.avgPnlBps} bps avg` : "No memory yet"}</strong>
+              </div>
+              <div className="passport-item">
+                <span>Risk profile</span>
+                <strong>{data.selection.riskProfileState || "neutral"}</strong>
+              </div>
+              <div className="passport-item">
+                <span>Alpha formula</span>
+                <strong>{data.selection.alphaFormula || "Pending"}</strong>
+              </div>
             </div>
           </section>
 
@@ -403,6 +449,13 @@ export default function App() {
               <strong>{(data.selection.confidence * 100).toFixed(0)}%</strong>
             </div>
             <p style={{ color: "var(--muted)", fontSize: "0.9rem" }}>{data.selection.explanation}</p>
+            {data.selection.alphaFormula && (
+              <div className="formula-box">
+                <span>AlphaGPT formula</span>
+                <code>{data.selection.alphaFormula}</code>
+                <p>{data.selection.formulaRationale}</p>
+              </div>
+            )}
             <h2>Key drivers</h2>
             <ul className="drivers">
               {data.selection.topDrivers.map((d) => (
@@ -434,6 +487,10 @@ export default function App() {
             <p style={{ color: "var(--muted)", fontSize: "0.8rem" }}>
               {data.selection.benchmarkSummary.note}
             </p>
+            <h2>Reflection</h2>
+            <p style={{ color: "var(--muted)", fontSize: "0.82rem" }}>
+              {data.selection.reflection || "No previous settlement data"}
+            </p>
           </section>
 
           <section className="panel span-8">
@@ -452,6 +509,28 @@ export default function App() {
                 <li key={c}>{c}</li>
               ))}
             </ul>
+          </section>
+
+          <section className="panel span-12">
+            <h2>Multi-Agent Research Loop</h2>
+            <div className="agent-report-grid">
+              <div>
+                <span>Indicator agent</span>
+                <p>{data.multiAgent?.indicatorReport || data.selection.multiAgentContext?.indicatorReport}</p>
+              </div>
+              <div>
+                <span>Flow agent</span>
+                <p>{data.multiAgent?.flowReport || data.selection.multiAgentContext?.flowReport}</p>
+              </div>
+              <div>
+                <span>Memory agent</span>
+                <p>{data.multiAgent?.memoryReport || data.selection.memoryContextSummary}</p>
+              </div>
+              <div>
+                <span>Reputation agent</span>
+                <p>{data.multiAgent?.reputationReport || data.selection.reputationImpact}</p>
+              </div>
+            </div>
           </section>
 
           <section className="panel span-4">

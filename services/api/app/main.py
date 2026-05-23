@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Literal
 
@@ -13,7 +14,11 @@ from pydantic import BaseModel, Field
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "packages" / "factor-engine"))
 sys.path.insert(0, str(ROOT / "packages" / "strategy-selector"))
+sys.path.insert(0, str(ROOT / "packages" / "agent-memory"))
+sys.path.insert(0, str(ROOT / "packages" / "agent-orchestrator"))
 
+from agent_memory import AgentMemoryStore, MemoryRecord  # noqa: E402
+from agent_orchestrator import build_agent_context  # noqa: E402
 from factor_engine.service import compute_factor_summary  # noqa: E402
 from strategy_selector.selector import select_strategy  # noqa: E402
 
@@ -25,7 +30,7 @@ from .chain import (
     register_agent_on_chain,
     submit_reputation_feedback,
 )
-from .config import AGENT_ID, CHAIN_CONFIGURED, CONTRACT_ADDRESS, EXPLORER_BASE, SUPPORTED_ASSETS
+from .config import AGENT_ID, CHAIN_CONFIGURED, CONTRACT_ADDRESS, EXPLORER_BASE, MEMORY_STORE_PATH, SUPPORTED_ASSETS
 from .data_loader import load_market_data, load_offline
 from .decision import build_decision_report, signal_hash
 from .reputation import settle_last_signal
@@ -45,6 +50,7 @@ app.add_middleware(
 )
 
 _last_analysis: dict[str, Any] = {}
+_memory_store = AgentMemoryStore(MEMORY_STORE_PATH)
 
 
 class AnalyzeRequest(BaseModel):
@@ -119,7 +125,32 @@ async def analyze(body: AnalyzeRequest) -> dict[str, Any]:
     try:
         ohlcv, data_mode = await load_market_data(symbol, req_mode)
         factor_summary = compute_factor_summary(ohlcv)
-        selection = select_strategy(symbol, factor_summary, ohlcv)
+        agent = get_agent_status()
+        factor_snapshot = {
+            item["id"]: float(item["score"])
+            for item in factor_summary.get("factors", [])
+            if item.get("score") is not None and not item.get("missing")
+        }
+        memory_context = {
+            "summary": _memory_store.summary(symbol),
+            "retrieved": _memory_store.retrieve(symbol=symbol, factor_snapshot=factor_snapshot, limit=3),
+        }
+        last_pnl = memory_context["summary"].get("latestPnlBps")
+        multi_agent_context = build_agent_context(
+            symbol=symbol,
+            factor_summary=factor_summary,
+            memory_context=memory_context,
+            agent_reputation=agent,
+        )
+        selection = select_strategy(
+            symbol,
+            factor_summary,
+            ohlcv,
+            agent_reputation=agent,
+            last_settlement_pnl=last_pnl,
+            memory_context=memory_context,
+            multi_agent_context=multi_agent_context,
+        )
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
@@ -138,7 +169,9 @@ async def analyze(body: AnalyzeRequest) -> dict[str, Any]:
         "explorerBase": EXPLORER_BASE,
         "contractAddress": CONTRACT_ADDRESS or None,
         "proofMode": "real-onchain" if CHAIN_CONFIGURED else "demo-proof",
-        "agent": get_agent_status(),
+        "agent": agent,
+        "memory": memory_context,
+        "multiAgent": multi_agent_context,
         "byreal": byreal_status(),
         "executionIntent": build_execution_intent({"symbol": symbol, "selection": selection}),
     }
@@ -212,7 +245,18 @@ async def record_signal(body: RecordSignalRequest) -> dict[str, Any]:
 @app.get("/agent")
 @app.get("/api/agent", include_in_schema=False)
 def agent_status() -> dict[str, Any]:
-    return get_agent_status()
+    return {**get_agent_status(), "memory": _memory_store.summary()}
+
+
+@app.get("/memory")
+@app.get("/api/memory", include_in_schema=False)
+def memory_status(symbol: str | None = None) -> dict[str, Any]:
+    sym = symbol.upper() if symbol else None
+    return {
+        "storePath": str(MEMORY_STORE_PATH),
+        "summary": _memory_store.summary(sym),
+        "recent": [asdict(record) for record in _memory_store.load(symbol=sym, limit=10)],
+    }
 
 
 @app.post("/agent/register")
@@ -242,6 +286,12 @@ async def settle(body: SettleRequest) -> dict[str, Any]:
 
     try:
         settlement = settle_last_signal(payload, body.exitPrice)
+        reputation_score = None
+        agent = payload.get("agent") or {}
+        if isinstance(agent, dict) and isinstance(agent.get("reputation"), dict):
+            reputation_score = agent["reputation"].get("score")
+        record = MemoryRecord.from_analysis(payload, settlement, reputation_score=reputation_score)
+        _memory_store.append(record)
         chain_result = submit_reputation_feedback(
             settlement["score"],
             signal_hash=payload["signalHash"],
@@ -268,4 +318,4 @@ async def settle(body: SettleRequest) -> dict[str, Any]:
                 "message": "Demo settlement calculated locally. Configure Mantle credentials and AGENT_ID to write reputation feedback.",
             }
 
-    return {"settlement": settlement, "chain": chain_result}
+    return {"settlement": settlement, "chain": chain_result, "memory": _memory_store.summary(payload["symbol"])}

@@ -7,6 +7,9 @@ ROOT = Path(__file__).resolve().parents[3]
 SAMPLE_DIR = ROOT / "data" / "sample"
 FACTOR_ENGINE_DIR = ROOT / "packages" / "factor-engine"
 STRATEGY_SELECTOR_DIR = ROOT / "packages" / "strategy-selector"
+AGENT_MEMORY_DIR = ROOT / "packages" / "agent-memory"
+AGENT_ORCHESTRATOR_DIR = ROOT / "packages" / "agent-orchestrator"
+MEMORY_STORE_PATH = Path(os.getenv("MEMORY_STORE_PATH", str(ROOT / "data" / "agent_memory.jsonl")))
 
 MANTLE_RPC_URL = os.getenv("MANTLE_RPC_URL", "https://rpc.sepolia.mantle.xyz")
 PRIVATE_MEMPOOL_RPC_URL = os.getenv(
