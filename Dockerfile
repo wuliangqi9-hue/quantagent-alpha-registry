@@ -11,6 +11,7 @@ FROM python:3.12-slim AS runtime
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV PORT=8000
+ENV PYTHONPATH=/app/packages/factor-engine:/app/packages/strategy-selector:/app/packages/agent-memory:/app/packages/agent-orchestrator
 
 WORKDIR /app
 
@@ -20,7 +21,6 @@ RUN pip install --no-cache-dir -r /tmp/requirements.txt
 COPY services ./services
 COPY packages ./packages
 COPY data ./data
-COPY contracts/artifacts ./contracts/artifacts
 COPY --from=web-build /app/apps/web/dist ./apps/web/dist
 
 EXPOSE 8000
