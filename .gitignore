@@ -13,7 +13,9 @@ apps/web/node_modules/
 contracts/node_modules/
 contracts/cache/
 contracts/artifacts/build-info/
+contracts/artifacts/**/*.dbg.json
 apps/web/dist/
+.coverage
 *.log
 *.pid
 .DS_Store

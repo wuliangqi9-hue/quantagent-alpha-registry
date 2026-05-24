@@ -1,6 +1,7 @@
 import {
   AgentPassport,
   EmptyState,
+  ExecutionPanel,
   FactorCharts,
   FootnotePanel,
   HeaderPanel,
@@ -64,6 +65,8 @@ export default function App() {
           <FactorCharts factors={data.factorSummary.factors} />
 
           <RegimeStrategy selection={data.selection} />
+
+          <ExecutionPanel data={data} />
 
           <RiskBenchmark selection={data.selection} />
 

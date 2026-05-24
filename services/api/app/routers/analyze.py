@@ -21,12 +21,17 @@ from ..chain import get_agent_status
 from ..config import (
     CHAIN_CONFIGURED,
     CONTRACT_ADDRESS,
+    ERC8004_IDENTITY_REGISTRY_ADDRESS,
+    ERC8004_REPUTATION_REGISTRY_ADDRESS,
     EXPLORER_BASE,
+    QUANT_AGENT_EXECUTOR_ADDRESS,
+    SIGNAL_REGISTRY_ADDRESS,
     SUPPORTED_ASSETS,
 )
 from ..data_loader import load_market_data, load_offline
 from ..decision import build_decision_report, signal_hash
 from ..models import AnalyzeRequest
+from ..zktls import ReclaimProofAdapter
 
 router = APIRouter(tags=["analysis"])
 
@@ -46,7 +51,7 @@ async def demo_sample(symbol: str = "BTC"):
 
 
 @router.post("/analyze")
-async def analyze(body: AnalyzeRequest, memory_store: Any) -> dict[str, Any]:
+async def analyze(body: AnalyzeRequest, memory_store: Any, opro_store: Any | None = None) -> dict[str, Any]:
     symbol = body.symbol.upper()
     if symbol not in SUPPORTED_ASSETS:
         raise HTTPException(status_code=400, detail=f"Unsupported symbol: {symbol}")
@@ -55,6 +60,14 @@ async def analyze(body: AnalyzeRequest, memory_store: Any) -> dict[str, Any]:
     try:
         ohlcv, data_mode = await load_market_data(symbol, req_mode)
         factor_summary = compute_factor_summary(ohlcv)
+        data_proof = ReclaimProofAdapter().build_proof(
+            endpoint=f"market-data:{symbol}:{data_mode}",
+            payload={
+                "latestTimestamp": factor_summary.get("latestTimestamp"),
+                "factorModel": factor_summary.get("modelVersion"),
+                "rows": len(ohlcv),
+            },
+        ).to_dict()
         agent = get_agent_status()
         factor_snapshot = {
             item["id"]: float(item["score"])
@@ -65,6 +78,14 @@ async def analyze(body: AnalyzeRequest, memory_store: Any) -> dict[str, Any]:
             "summary": memory_store.summary(symbol),
             "retrieved": memory_store.retrieve(symbol=symbol, factor_snapshot=factor_snapshot, limit=3),
         }
+        atlas_prompt = opro_store.best_variant() if opro_store is not None else None
+        if atlas_prompt is not None:
+            memory_context["adaptivePrompt"] = {
+                "id": atlas_prompt.id,
+                "template": atlas_prompt.template,
+                "avgPnlBps": atlas_prompt.avg_pnl_bps,
+                "uses": atlas_prompt.uses,
+            }
         last_pnl = memory_context["summary"].get("latestPnlBps")
         multi_agent_context = build_agent_context(
             symbol=symbol,
@@ -84,7 +105,7 @@ async def analyze(body: AnalyzeRequest, memory_store: Any) -> dict[str, Any]:
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
-    report = build_decision_report(symbol, data_mode, factor_summary, selection)
+    report = build_decision_report(symbol, data_mode, factor_summary, selection, data_proof=data_proof)
     sig_hash = signal_hash(report)
 
     result = {
@@ -94,10 +115,17 @@ async def analyze(body: AnalyzeRequest, memory_store: Any) -> dict[str, Any]:
         "modelVersion": report["modelVersion"],
         "reportSchema": report["schema"],
         "factorSummary": factor_summary,
+        "dataProof": data_proof,
         "selection": selection,
         "decisionReport": report,
         "explorerBase": EXPLORER_BASE,
         "contractAddress": CONTRACT_ADDRESS or None,
+        "signalRegistry": SIGNAL_REGISTRY_ADDRESS,
+        "quantAgentExecutor": QUANT_AGENT_EXECUTOR_ADDRESS,
+        "erc8004": {
+            "identityRegistry": ERC8004_IDENTITY_REGISTRY_ADDRESS,
+            "reputationRegistry": ERC8004_REPUTATION_REGISTRY_ADDRESS,
+        },
         "proofMode": "real-onchain" if CHAIN_CONFIGURED else "demo-proof",
         "agent": agent,
         "memory": memory_context,

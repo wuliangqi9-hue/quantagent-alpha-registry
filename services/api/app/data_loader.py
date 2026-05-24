@@ -1,11 +1,15 @@
 from __future__ import annotations
 
-from typing import Literal
+import logging
+from typing import Any, Literal
 
 import httpx
 import pandas as pd
 
 from .config import SAMPLE_DIR
+from .x402 import X402Client
+
+logger = logging.getLogger(__name__)
 
 Mode = Literal["live", "offline-demo"]
 
@@ -21,16 +25,84 @@ def load_offline(symbol: str) -> tuple[pd.DataFrame, Mode]:
     return df, "offline-demo"
 
 
+async def _fetch_with_x402_retry(
+    url: str,
+    params: dict[str, Any],
+    *,
+    alpha_value_bps: float = 5.0,
+    max_retries: int = 1,
+) -> list[Any]:
+    """Fetch external data with optional x402 HTTP 402 intercept & retry pipeline."""
+    x402 = X402Client()
+    last_status: int | None = None
+
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        for attempt in range(max_retries + 1):
+            resp = await client.get(url, params=params)
+            last_status = resp.status_code
+
+            if resp.status_code != 402:
+                resp.raise_for_status()
+                return resp.json()
+
+            # --- x402 intercept ---
+            body: dict[str, Any] | None = None
+            if resp.text:
+                content_type = resp.headers.get("content-type", "")
+                if "json" in content_type:
+                    try:
+                        body = resp.json()
+                    except Exception:
+                        logger.debug(
+                            "x402 body claimed JSON but failed to parse for %s",
+                            url,
+                        )
+                # Non-JSON body → headers-only parsing below
+
+            schema = x402.parse_schema(dict(resp.headers), body=body)
+            if schema is None:
+                logger.warning(
+                    "x402 response from %s missing payment schema (status=%d)",
+                    url,
+                    last_status,
+                )
+                break
+
+            if not x402.should_pay(schema, alpha_value_bps):
+                logger.warning(
+                    "x402 payment declined for %s (amount=$%.4f, alpha=%.1fbps)",
+                    schema.resource,
+                    schema.amountUsd,
+                    alpha_value_bps,
+                )
+                break
+
+            payment = x402.prepare_payment(schema, alpha_value_bps=alpha_value_bps)
+            logger.info(
+                "x402 payment approved for %s: $%.4f %s → %s",
+                schema.resource,
+                schema.amountUsd,
+                schema.asset,
+                schema.recipient,
+            )
+            if payment["approved"] and payment["payload"]:
+                params = {**params, "x402-payment-proof": payment["payload"]}
+            # Fall through to next attempt (or exhaust) with payment proof
+
+    raise httpx.HTTPStatusError(
+        f"External API {url} returned {last_status} after x402 intercept (attempts={attempt + 1})",
+        request=resp.request,
+        response=resp,
+    )
+
+
 async def fetch_binance_klines(symbol: str, limit: int = 500) -> pd.DataFrame:
     pair = BINANCE_SYMBOLS.get(symbol.upper())
     if not pair:
         raise ValueError(f"Unsupported symbol for live mode: {symbol}")
     url = "https://api.binance.com/api/v3/klines"
     params = {"symbol": pair, "interval": "1h", "limit": limit}
-    async with httpx.AsyncClient(timeout=15.0) as client:
-        resp = await client.get(url, params=params)
-        resp.raise_for_status()
-        rows = resp.json()
+    rows = await _fetch_with_x402_retry(url, params, alpha_value_bps=5.0)
 
     records = []
     for row in rows:

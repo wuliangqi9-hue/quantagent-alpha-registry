@@ -21,33 +21,6 @@ def byreal_status() -> dict[str, Any]:
 
 
 def build_execution_intent(analysis: dict[str, Any]) -> dict[str, Any]:
-    selection = analysis.get("selection", {})
-    direction = selection.get("signalDirection", "neutral")
-    symbol = analysis.get("symbol", "BTC")
-    confidence = float(selection.get("confidence", 0.0) or 0.0)
-    risk_warnings = selection.get("riskWarnings", [])
+    from .execution import ByrealRFQAdapter
 
-    if direction == "long":
-        action = "prepare-swap-or-long-route"
-    elif direction == "short":
-        action = "prepare-hedge-or-perps-route"
-    else:
-        action = "observe-only"
-
-    size_hint = "micro" if confidence < 0.65 or len(risk_warnings) > 1 else "small"
-    return {
-        "provider": "Byreal/RealClaw",
-        "mode": byreal_status()["mode"],
-        "asset": symbol,
-        "action": action,
-        "sizeHint": size_hint,
-        "strategyId": selection.get("strategyId"),
-        "confidence": confidence,
-        "slippagePolicy": "dynamic-estimate-required",
-        "mevPolicy": "prefer-private-rpc-or-protected-route",
-        "notes": [
-            "Core alpha remains QuantAgent factor research.",
-            "Execution is routed through the Mantle ecosystem adapter when configured.",
-            "Simulation mode is allowed for demos but must be replaced by real credentials before final live execution.",
-        ],
-    }
+    return ByrealRFQAdapter().build_intent(analysis)

@@ -50,17 +50,53 @@ export function MantleProofPanel({ data, chain, settlement, settlementChain }: P
         <span>API proof mode</span>
         <strong style={{ fontSize: "0.75rem" }}>{data.proofMode}</strong>
       </div>
+      {data.dataProof && (
+        <>
+          <div className="metric">
+            <span>zkTLS provider</span>
+            <strong style={{ fontSize: "0.75rem" }}>{data.dataProof.provider}</strong>
+          </div>
+          <div className="metric">
+            <span>Data proof hash</span>
+            <strong style={{ fontSize: "0.75rem" }}>{shortHash(data.dataProof.proofHash)}</strong>
+          </div>
+        </>
+      )}
       {data.contractAddress && (
         <div className="metric">
-          <span>Contract</span>
+          <span>SignalRegistry</span>
           <strong style={{ fontSize: "0.75rem" }}>{shortHash(data.contractAddress)}</strong>
         </div>
       )}
       {!data.contractAddress && (
         <p className="note">
-          Contract not configured. The UI remains demo-safe; set a deployed SignalRegistry address
+          SignalRegistry not configured. The UI remains demo-safe; set SIGNAL_REGISTRY_ADDRESS
           for final submission.
         </p>
+      )}
+      {data.signalRegistry && data.signalRegistry !== data.contractAddress && (
+        <div className="metric">
+          <span>SignalRegistry (config)</span>
+          <strong style={{ fontSize: "0.75rem" }}>{shortHash(data.signalRegistry)}</strong>
+        </div>
+      )}
+      {data.quantAgentExecutor && (
+        <div className="metric">
+          <span>QuantAgentExecutor</span>
+          <strong style={{ fontSize: "0.75rem" }}>{shortHash(data.quantAgentExecutor)}</strong>
+        </div>
+      )}
+      {data.erc8004 && (
+        <>
+          <div className="metric" style={{ marginTop: 8 }}>
+            <span>ERC-8004 IdentityRegistry</span>
+            <strong style={{ fontSize: "0.75rem" }}>{shortHash(data.erc8004.identityRegistry)}</strong>
+          </div>
+          <div className="metric">
+            <span>ERC-8004 ReputationRegistry</span>
+            <strong style={{ fontSize: "0.75rem" }}>{shortHash(data.erc8004.reputationRegistry)}</strong>
+          </div>
+        </>
       )}
       {chain?.txHash && chain.explorerUrl && (
         <p style={{ marginTop: 12 }}>
@@ -94,6 +130,14 @@ export function MantleProofPanel({ data, chain, settlement, settlementChain }: P
           <div className="metric">
             <span>Feedback score</span>
             <strong>{settlement.score}</strong>
+          </div>
+          <div className="metric">
+            <span>Rolling PnL</span>
+            <strong>{(settlement.rollingPnlBps ?? settlement.pnlBps).toFixed(2)}</strong>
+          </div>
+          <div className="metric">
+            <span>Loss streak</span>
+            <strong>{settlement.consecutiveLosses ?? 0}</strong>
           </div>
           <div className={`proof-state ${settlementChain?.recorded ? "recorded" : "demo"}`}>
             {settlementChain?.recorded ? "Reputation written" : "Reputation demo"}

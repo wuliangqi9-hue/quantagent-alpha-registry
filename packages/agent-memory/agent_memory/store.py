@@ -30,6 +30,11 @@ class MemoryRecord:
     reflection: str
     factor_snapshot: dict[str, float] = field(default_factory=dict)
     reputation_score: float | None = None
+    target_exposure: float = 0.0
+    rolling_pnl_bps: float = 0.0
+    cumulative_pnl_bps: float = 0.0
+    max_drawdown_bps: float = 0.0
+    consecutive_losses: int = 0
 
     @classmethod
     def from_analysis(
@@ -40,6 +45,7 @@ class MemoryRecord:
         reputation_score: float | None = None,
     ) -> "MemoryRecord":
         selection = analysis.get("selection", {})
+        position_plan = selection.get("positionPlan", {})
         factors = analysis.get("factorSummary", {}).get("factors", [])
         factor_snapshot = {
             item.get("id"): float(item.get("score"))
@@ -61,6 +67,11 @@ class MemoryRecord:
             reflection=str(selection.get("reflection") or "No previous settlement data"),
             factor_snapshot=factor_snapshot,
             reputation_score=reputation_score,
+            target_exposure=float(position_plan.get("targetExposure") or 0.0),
+            rolling_pnl_bps=float(settlement.get("rollingPnlBps") or settlement.get("pnlBps") or 0.0),
+            cumulative_pnl_bps=float(settlement.get("cumulativePnlBps") or settlement.get("pnlBps") or 0.0),
+            max_drawdown_bps=float(settlement.get("maxDrawdownBps") or 0.0),
+            consecutive_losses=int(settlement.get("consecutiveLosses") or 0),
         )
 
 
@@ -132,6 +143,11 @@ class AgentMemoryStore:
                 "riskProfileState": record.risk_profile_state,
                 "reflection": record.reflection,
                 "reputationScore": record.reputation_score,
+                "targetExposure": record.target_exposure,
+                "rollingPnlBps": record.rolling_pnl_bps,
+                "cumulativePnlBps": record.cumulative_pnl_bps,
+                "maxDrawdownBps": record.max_drawdown_bps,
+                "consecutiveLosses": record.consecutive_losses,
                 "memoryScore": round(total, 4),
                 "scoreComponents": {key: round(value, 4) for key, value in components.items()},
             }
@@ -156,6 +172,10 @@ class AgentMemoryStore:
             "avgPnlBps": round(avg_pnl, 4),
             "winRate": round(wins / len(records), 4),
             "latestPnlBps": records[0].pnl_bps,
+            "rollingPnlBps": records[0].rolling_pnl_bps,
+            "cumulativePnlBps": records[0].cumulative_pnl_bps,
+            "maxDrawdownBps": records[0].max_drawdown_bps,
+            "consecutiveLosses": records[0].consecutive_losses,
             "lastReflection": records[0].reflection,
             "lastStrategyId": records[0].strategy_id,
         }

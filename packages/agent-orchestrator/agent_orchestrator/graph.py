@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from .qtmrl import A2CPolicyEngine
+
 
 # ---------------------------------------------------------------------------
 # QuantAgent-inspired shared state (参照 agent_state.py 的 TypedDict 模式)
@@ -153,7 +155,7 @@ class ReputationAgent:
         if score is not None:
             return f"Reputation agent [{self.VERSION}]: ERC-8004 score {score}/10000."
         return (
-            "Reputation agent [{self.VERSION}]: no on-chain score available; "
+            f"Reputation agent [{self.VERSION}]: no on-chain score available; "
             "use neutral policy."
         )
 
@@ -219,6 +221,7 @@ class AgentOrchestrator:
         self.memory = MemoryAgent()
         self.reputation = ReputationAgent()
         self.critic = RiskCritic()
+        self.a2c = A2CPolicyEngine()
 
     def run(
         self,
@@ -247,6 +250,10 @@ class AgentOrchestrator:
         state.memory_report = self.memory.analyze(state)
         state.reputation_report = self.reputation.analyze(state)
         state.risk_warnings = self.critic.analyze(state)
+        a2c_decision = self.a2c.evaluate(
+            factor_summary=factor_summary,
+            memory_context=memory_context,
+        )
 
         # 聚合决策输入 — P1-6: 包含因子引擎完整元数据
         factors = state.factor_snapshot or _factor_map(factor_summary)
@@ -267,6 +274,7 @@ class AgentOrchestrator:
             "recentVolatility24h": factor_summary.get("recentVolatility24h", 0.0),
             "factorCount": len([f for f in factor_summary.get("factors", []) if f.get("score") is not None]),
             "activeFactorColumns": factor_summary.get("rawFactorColumns", []),
+            "qtmrlA2C": a2c_decision.to_dict(),
         }
 
         return {
@@ -279,6 +287,7 @@ class AgentOrchestrator:
             "reputationReport": state.reputation_report,
             "riskCriticWarnings": state.risk_warnings,
             "decisionInputs": state.decision_inputs,
+            "qtmrlA2C": a2c_decision.to_dict(),
             # P1-6: 完整因子引擎快照 — 各下游 Agent 可直接引用
             "factorSnapshot": state.factor_snapshot,
             "factorEngineModelVersion": factor_summary.get("modelVersion"),

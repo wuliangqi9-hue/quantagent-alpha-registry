@@ -16,6 +16,7 @@ from .config import (
     ROOT,
     VALIDATOR_ADDRESS,
 )
+from .erc8004 import build_reputation_feedback
 
 ABI_PATHS = [
     ROOT / "contracts" / "artifacts" / "contracts" / "SignalRegistry.sol" / "SignalRegistry.json",
@@ -321,6 +322,8 @@ def submit_reputation_feedback(
     tag2: str,
     feedback_payload: dict[str, Any],
 ) -> dict[str, Any]:
+    erc8004_feedback = build_reputation_feedback(feedback_payload)
+    fixed_score = erc8004_feedback["score"]
     if not chain_ready() or AGENT_ID <= 0:
         return {
             "recorded": False,
@@ -328,6 +331,7 @@ def submit_reputation_feedback(
             "proofMode": "demo-proof",
             "agentId": AGENT_ID or None,
             "signalHash": signal_hash,
+            "erc8004Feedback": erc8004_feedback,
             "message": "Set SIGNAL_REGISTRY_ADDRESS, MANTLE_PRIVATE_KEY, and AGENT_ID to write reputation feedback.",
         }
 
@@ -336,8 +340,8 @@ def submit_reputation_feedback(
     feedback_uri = f"{PROOF_URI_BASE}/feedback/{signal_hash}"
     fn = contract.functions.giveFeedback(
         AGENT_ID,
-        int(value),
-        4,
+        int(fixed_score["value"]),
+        int(fixed_score["valueDecimals"]),
         tag1,
         tag2,
         "quantagent-alpha-registry",
@@ -351,10 +355,11 @@ def submit_reputation_feedback(
             "proofMode": "real-onchain",
             "agentId": AGENT_ID,
             "signalHash": signal_hash,
-            "feedbackValue": value,
-            "feedbackDecimals": 4,
+            "feedbackValue": int(fixed_score["value"]),
+            "feedbackDecimals": int(fixed_score["valueDecimals"]),
             "feedbackURI": feedback_uri,
             "feedbackHash": feedback_hash.hex(),
+            "erc8004Feedback": erc8004_feedback,
         }
     )
     return receipt

@@ -2,6 +2,7 @@ export { HeaderPanel } from "./HeaderPanel";
 export { EmptyState } from "./EmptyState";
 export { StatusBar } from "./StatusBar";
 export { AgentPassport } from "./AgentPassport";
+export { ExecutionPanel } from "./ExecutionPanel";
 export { FactorCharts } from "./FactorCharts";
 export { RegimeStrategy } from "./RegimeStrategy";
 export { RiskBenchmark } from "./RiskBenchmark";

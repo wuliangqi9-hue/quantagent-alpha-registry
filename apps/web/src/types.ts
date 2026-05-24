@@ -55,6 +55,18 @@ export type Selection = {
   confidence: number;
   topDrivers: string[];
   riskWarnings: string[];
+  positionPlan?: {
+    schema: string;
+    targetExposure: number;
+    targetExposurePct: number;
+    maxSlippageBps: number;
+    stopLossBps: number;
+    takeProfitBps: number;
+    orderType: string;
+    timeInForce: string;
+    amountPolicy: string;
+    positionRationale: string;
+  };
   benchmarkSummary: BenchmarkSummary;
   benchmarkChart: BenchmarkChart;
   alphaFormula?: string;
@@ -95,16 +107,52 @@ export type ByrealStatus = {
 };
 
 export type ExecutionIntent = {
+  schema?: string;
   provider: string;
+  adapterVersion?: string;
   mode: string;
   asset: string;
   action: string;
-  sizeHint: string;
+  sizeHint?: string;
+  routeType?: string;
+  venuePreference?: string[];
+  amountPolicy?: string;
+  targetExposure?: number;
+  targetExposurePct?: number;
+  orderType?: string;
   strategyId: string;
   confidence: number;
-  slippagePolicy: string;
+  slippagePolicy?: string;
+  slippageGuard?: {
+    maxSlippageBps: number;
+    zeroPriceImpactPreferred: boolean;
+    constantProductAmmPenalty: string;
+  };
   mevPolicy: string;
+  mevProtectionRequired?: boolean;
+  realClawMacro?: {
+    enabled: boolean;
+    capabilities: string[];
+    maxLeverage: number;
+  };
+  x402?: Record<string, unknown>;
   notes: string[];
+};
+
+export type DataProof = {
+  schema: string;
+  provider: string;
+  endpoint: string;
+  proofHash: string;
+  proofURI: string;
+  mode: string;
+  verified: boolean;
+  message: string;
+};
+
+export type Erc8004Addresses = {
+  identityRegistry: string;
+  reputationRegistry: string;
 };
 
 export type Analysis = {
@@ -116,11 +164,15 @@ export type Analysis = {
   factorSummary: { factors: Factor[] };
   selection: Selection;
   contractAddress: string | null;
+  signalRegistry?: string;
+  quantAgentExecutor?: string;
+  erc8004?: Erc8004Addresses;
   explorerBase: string;
   proofMode: string;
   agent: AgentStatus;
   byreal: ByrealStatus;
   executionIntent: ExecutionIntent;
+  dataProof?: DataProof;
   memory?: MemoryContext;
   multiAgent?: MultiAgentContext;
   decisionReport: Record<string, unknown>;
@@ -149,6 +201,11 @@ export type Settlement = {
   pnlBps: number;
   confidence: number;
   score: number;
+  rollingPnlBps?: number;
+  cumulativePnlBps?: number;
+  winRate?: number;
+  maxDrawdownBps?: number;
+  consecutiveLosses?: number;
   settlementHash: string;
 };
 

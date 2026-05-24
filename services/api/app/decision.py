@@ -10,6 +10,7 @@ def build_decision_report(
     mode: str,
     factor_summary: dict[str, Any],
     selection: dict[str, Any],
+    data_proof: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     return {
         "schema": "quantagent.signal-report.v1",
@@ -25,6 +26,8 @@ def build_decision_report(
         "topDrivers": selection.get("topDrivers"),
         "riskWarnings": selection.get("riskWarnings"),
         "benchmarkSummary": selection.get("benchmarkSummary"),
+        "positionPlan": selection.get("positionPlan"),
+        "dataProof": data_proof,
         "timestamp": factor_summary.get("latestTimestamp"),
         "source": {
             "factorEngine": factor_summary.get("modelVersion"),

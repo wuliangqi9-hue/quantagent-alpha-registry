@@ -12,6 +12,7 @@ are excluded.
 - `dist/`;
 - `cache/`;
 - large build-info artifacts;
+- Hardhat debug artifacts (`*.dbg.json`);
 - logs or PID files.
 
 ## Can Commit
@@ -19,7 +20,8 @@ are excluded.
 - source code;
 - sample CSVs for offline demo mode;
 - Solidity contract source;
-- compact contract ABI artifact if needed by the API;
+- compact contract ABI artifacts (`contracts/artifacts/contracts/**/*.json`) when
+  needed by the API or deployment docs;
 - README and submission docs.
 
 ## Recommended Final Check

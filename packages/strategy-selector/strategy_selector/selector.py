@@ -6,6 +6,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field, ValidationError, field_validator
 
 from .benchmark import STRATEGY_BENCHMARKS, build_benchmark_chart
+from .finpos import DirectionDecisionAgent, QuantityRiskDecisionAgent
 
 MODEL_VERSION = "strategy-selector-1.1.0-academic-agent"
 
@@ -146,12 +147,7 @@ def _pick_strategy(regime: str, factors: dict[str, float]) -> tuple[str, float, 
 
 
 def _signal_direction(regime: str, factors: dict[str, float]) -> str:
-    momentum = factors.get("momentum", 0.0)
-    if regime == "bull" or momentum > 0.15:
-        return "long"
-    if regime == "bear" or momentum < -0.15:
-        return "short"
-    return "neutral"
+    return DirectionDecisionAgent().decide(regime=regime, factors=factors).direction
 
 
 def _risk_warnings(
@@ -381,6 +377,12 @@ def _build_system_prompt(
         )
 
     if memory_context:
+        adaptive_prompt = memory_context.get("adaptivePrompt")
+        if adaptive_prompt:
+            prompt_parts.append(
+                "【ATLAS Adaptive-OPRO】Use this performance-selected prompt mutation as the active optimization prior:\n"
+                + json.dumps(adaptive_prompt, ensure_ascii=False, sort_keys=True)
+            )
         prompt_parts.append(
             "【FinMem Retrieved Memories】Use these retrieved settlement memories as episodic evidence. "
             "Prefer strategies that improved reputation under similar factor states and avoid repeating recent loss patterns:\n"
@@ -527,6 +529,44 @@ def _apply_memory_guardrails(
     return round(confidence, 2), drivers[:6], warnings[:6]
 
 
+def _memory_loss_streak(memory_context: dict[str, Any] | None) -> int:
+    """FinPos 风控输入：从多时间尺度记忆里读取连续亏损。"""
+    if not memory_context:
+        return 0
+    summary = memory_context.get("summary", {})
+    try:
+        return int(summary.get("consecutiveLosses") or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _build_position_plan(
+    *,
+    direction: str,
+    confidence: float,
+    factors: dict[str, float],
+    recent_vol: float,
+    risk_profile: RiskProfileState,
+    memory_context: dict[str, Any] | None,
+    risk_warnings: list[str],
+) -> dict[str, Any]:
+    """FinPos 工程化落点：委托数量与风险决策智能体生成仓位计划。"""
+    summary = (memory_context or {}).get("summary", {})
+    current_exposure = float(summary.get("currentExposure") or 0.0)
+    unrealized_pnl_bps = float(summary.get("unrealizedPnlBps") or 0.0)
+    return QuantityRiskDecisionAgent().decide(
+        direction=direction,
+        confidence=confidence,
+        factors=factors,
+        recent_volatility=recent_vol,
+        risk_profile=risk_profile,
+        memory_context=memory_context,
+        risk_warnings=risk_warnings,
+        current_exposure=current_exposure,
+        unrealized_pnl_bps=unrealized_pnl_bps,
+    ).to_dict()
+
+
 def select_strategy(
     symbol: str,
     factor_summary: dict[str, Any],
@@ -540,8 +580,10 @@ def select_strategy(
     recent_vol = float(factor_summary.get("recentVolatility24h") or 0.0)
     regime = _classify_regime(factors, recent_vol)
     strategy_id, confidence, drivers = _pick_strategy(regime, factors)
-    direction = _signal_direction(regime, factors)
+    direction_decision = DirectionDecisionAgent().decide(regime=regime, factors=factors)
+    direction = direction_decision.direction
     warnings = _risk_warnings(factors, regime, recent_vol)
+    drivers = [*drivers, direction_decision.reasoning][:5]
 
     # FinMem：把 ERC-8004 链上声誉视作“情节记忆”，直接约束风险偏好。
     risk_profile = _risk_profile_from_reputation(agent_reputation)
@@ -630,6 +672,16 @@ def select_strategy(
     else:
         meta = STRATEGIES[strategy_id]
 
+    position_plan = _build_position_plan(
+        direction=direction,
+        confidence=confidence,
+        factors=factors,
+        recent_vol=recent_vol,
+        risk_profile=risk_profile,
+        memory_context=memory_context,
+        risk_warnings=warnings,
+    )
+
     system_prompt = _build_system_prompt(
         factor_summary=factor_summary,
         risk_profile=risk_profile,
@@ -650,6 +702,7 @@ def select_strategy(
         "confidence": confidence,
         "topDrivers": drivers,
         "riskWarnings": warnings,
+        "positionPlan": position_plan,
         "benchmarkSummary": benchmark_summary,
         "benchmarkChart": chart,
         "alphaFormula": llm_decision.alphaFormula or default_decision.alphaFormula,

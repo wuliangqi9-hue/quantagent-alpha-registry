@@ -38,6 +38,43 @@ paper drives specific runtime modules, not just a citations list.
 | **AlphaGPT** (2023) – LLM-Generated Alpha Factors | `packages/strategy-selector/selector.py` | Dynamic-rank alpha formula with regime-aware weights (e.g., `decay_linear(momentum,6)`); conservative mode adjusts volatility penalty from 0.30 → 0.45 |
 | **EIP-8004** – Trustless Agent Identity | `contracts/contracts/SignalRegistry.sol` | ERC-8004-inspired identity (agent NFT), validation (proof request), and reputation (settlement feedback) on Mantle; zkML proofHash anchor reserved for future verifiability |
 
+## Contract Architecture
+
+| Contract | Owner | Role |
+|----------|-------|------|
+| `SignalRegistry.sol` | **Project-deployed** (own contract) | Agent identity NFT, validation proof requests, reputation settlement — ERC-8004-inspired |
+| `QuantAgentExecutor.sol` | **Project-deployed** (own contract) | zkTLS proof gate: verifies Reclaim-compatible `IReclaim.verifyProof` before anchoring execution intents |
+| ERC-8004 IdentityRegistry | External/official registry (read-only) | Standard ERC-8004 identity lookups |
+| ERC-8004 ReputationRegistry | External/official registry (read-only) | Standard ERC-8004 reputation queries |
+
+**Reclaim compatibility note**: `QuantAgentExecutor` defines a minimal `IReclaim` interface
+matching the official `@reclaimprotocol/verifier-solidity-sdk` struct layout (see
+`contracts/contracts/QuantAgentExecutor.sol`). This avoids importing the SDK's inline-assembly
+source during compilation while calling the same on-chain verifier. The `RECLAIM_*` env vars are
+reserved for future full SDK integration.
+
+**x402 pipeline**: current status is simulation / facilitator-ready. The `X402Client`
+in `services/api/app/x402.py` parses HTTP 402 metadata and prepares Blocky402
+payment intents deterministically; a live facilitator call can replace
+`prepare_payment` without touching callers.
+
+**Byreal / RealClaw**: current status is adapter / simulation-ready. Real SDK
+credentials configured via `BYREAL_API_BASE` / `BYREAL_API_KEY` will switch
+from simulation to live RFQ execution-intent routing.
+
+## Full End-to-End Flow
+
+```mermaid
+flowchart LR
+  A["Analyze: factor scores + strategy reasoning"] --> B["FinPos PositionPlan: direction, exposure, risk"]
+  B --> C["QTMRL A2C: policy-weighted action recommendation"]
+  C --> D["RFQ ExecutionIntent: route type, venue, slippage"]
+  D --> E["zkTLS DataProof: Reclaim-compatible proof gate"]
+  E --> F["Record Signal: SignalRegistry anchor on Mantle"]
+  F --> G["Settle: PnL, drawdown, win rate feedback"]
+  G --> H["ERC-8004 Feedback: identity + reputation update"]
+```
+
 ## Architecture
 
 ```mermaid

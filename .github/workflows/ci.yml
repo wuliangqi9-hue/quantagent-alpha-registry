@@ -23,7 +23,8 @@ jobs:
       - name: Install root dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install ruff mypy
+          pip install -r requirements.txt
+          pip install ruff
 
       - name: Lint with ruff (packages)
         run: |
@@ -32,6 +33,41 @@ jobs:
       - name: Lint with ruff (services/api)
         run: |
           ruff check services/api/ --ignore E402,E501
+
+      - name: Compile check Python sources
+        run: |
+          python -m compileall \
+            packages/agent-memory \
+            packages/agent-orchestrator \
+            packages/factor-engine \
+            packages/strategy-selector \
+            services/api/app \
+            scripts
+
+      - name: Run strategy-selector tests (unittest)
+        run: |
+          python -m unittest discover packages/strategy-selector/tests
+
+      - name: Check new source files are referenced
+        shell: bash
+        run: |
+          set -euo pipefail
+          NEW_FILE_CHECK=(
+            "packages/strategy-selector/strategy_selector/finpos.py:DirectionDecisionAgent"
+            "packages/agent-orchestrator/agent_orchestrator/qtmrl.py:A2CPolicyEngine"
+            "packages/agent-memory/agent_memory/atlas_opro.py:AdaptiveOPROStore"
+            "services/api/app/execution.py:ByrealRFQAdapter"
+            "services/api/app/x402.py:X402Client"
+            "services/api/app/zktls.py:ReclaimProofAdapter"
+            "services/api/app/erc8004.py:build_reputation_feedback"
+            "apps/web/src/components/ExecutionPanel.tsx:ExecutionPanel"
+          )
+          for entry in "${NEW_FILE_CHECK[@]}"; do
+            file="${entry%%:*}"
+            symbol="${entry##*:}"
+            test -f "$file"
+            rg "$symbol" .
+          done
 
   smoke-test:
     runs-on: ubuntu-latest
@@ -55,3 +91,39 @@ jobs:
       - name: Run smoke test
         run: |
           python scripts/smoke_test.py
+
+  web-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install web dependencies
+        working-directory: apps/web
+        run: npm ci
+
+      - name: Build web app
+        working-directory: apps/web
+        run: npm run build
+
+  contracts-compile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install contract dependencies
+        working-directory: contracts
+        run: npm ci
+
+      - name: Compile contracts
+        working-directory: contracts
+        run: npm run compile

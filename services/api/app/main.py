@@ -15,9 +15,9 @@ sys.path.insert(0, str(ROOT / "packages" / "strategy-selector"))
 sys.path.insert(0, str(ROOT / "packages" / "agent-memory"))
 sys.path.insert(0, str(ROOT / "packages" / "agent-orchestrator"))
 
-from agent_memory import AgentMemoryStore  # noqa: E402
+from agent_memory import AdaptiveOPROStore, AgentMemoryStore  # noqa: E402
 
-from .config import MEMORY_STORE_PATH
+from .config import ATLAS_OPRO_STORE_PATH, MEMORY_STORE_PATH
 from .routers import analyze as analyze_router
 from .routers import health as health_router
 from .routers import signal as signal_router
@@ -37,6 +37,7 @@ app.add_middleware(
 )
 
 _memory_store = AgentMemoryStore(MEMORY_STORE_PATH)
+_opro_store = AdaptiveOPROStore(ATLAS_OPRO_STORE_PATH)
 
 
 def _inject_memory() -> dict[str, Any]:
@@ -65,7 +66,7 @@ async def demo_sample(symbol: str = "BTC"):
 @app.post("/analyze")
 @app.post("/api/analyze", include_in_schema=False)
 async def analyze(body: analyze_router.AnalyzeRequest):
-    result = await analyze_router.analyze(body, memory_store=_memory_store)
+    result = await analyze_router.analyze(body, memory_store=_memory_store, opro_store=_opro_store)
     signal_router.set_last_analysis(result)
     return result
 
@@ -79,7 +80,7 @@ async def record_signal(body: signal_router.RecordSignalRequest):
 @app.post("/settle")
 @app.post("/api/settle", include_in_schema=False)
 async def settle(body: signal_router.SettleRequest):
-    return await signal_router.settle(body, memory_store=_memory_store)
+    return await signal_router.settle(body, memory_store=_memory_store, opro_store=_opro_store)
 
 
 @app.get("/agent")

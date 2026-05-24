@@ -1,0 +1,87 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "IReclaim",
+  "sourceName": "contracts/QuantAgentExecutor.sol",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "components": [
+            {
+              "components": [
+                {
+                  "internalType": "string",
+                  "name": "provider",
+                  "type": "string"
+                },
+                {
+                  "internalType": "string",
+                  "name": "parameters",
+                  "type": "string"
+                },
+                {
+                  "internalType": "string",
+                  "name": "context",
+                  "type": "string"
+                }
+              ],
+              "internalType": "struct IReclaim.ClaimInfo",
+              "name": "claimInfo",
+              "type": "tuple"
+            },
+            {
+              "components": [
+                {
+                  "components": [
+                    {
+                      "internalType": "bytes32",
+                      "name": "identifier",
+                      "type": "bytes32"
+                    },
+                    {
+                      "internalType": "address",
+                      "name": "owner",
+                      "type": "address"
+                    },
+                    {
+                      "internalType": "uint32",
+                      "name": "timestampS",
+                      "type": "uint32"
+                    },
+                    {
+                      "internalType": "uint32",
+                      "name": "epoch",
+                      "type": "uint32"
+                    }
+                  ],
+                  "internalType": "struct IReclaim.CompleteClaimData",
+                  "name": "claim",
+                  "type": "tuple"
+                },
+                {
+                  "internalType": "bytes[]",
+                  "name": "signatures",
+                  "type": "bytes[]"
+                }
+              ],
+              "internalType": "struct IReclaim.SignedClaim",
+              "name": "signedClaim",
+              "type": "tuple"
+            }
+          ],
+          "internalType": "struct IReclaim.Proof",
+          "name": "proof",
+          "type": "tuple"
+        }
+      ],
+      "name": "verifyProof",
+      "outputs": [],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

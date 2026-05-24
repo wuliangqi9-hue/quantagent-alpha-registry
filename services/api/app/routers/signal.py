@@ -16,6 +16,7 @@ from ..chain import (
     submit_reputation_feedback,
 )
 from ..config import CHAIN_CONFIGURED, MEMORY_STORE_PATH
+from ..erc8004 import build_reputation_feedback
 from ..reputation import settle_last_signal
 from ..models import AgentRegisterRequest, RecordSignalRequest, SettleRequest
 
@@ -87,6 +88,7 @@ async def record_signal(body: RecordSignalRequest):
 async def settle(
     body: SettleRequest,
     memory_store: Any = None,
+    opro_store: Any = None,
 ):
     if body.useLastAnalysis:
         if not _last_analysis:
@@ -96,7 +98,8 @@ async def settle(
         raise HTTPException(status_code=400, detail="Only useLastAnalysis settlement is supported in this MVP.")
 
     try:
-        settlement = settle_last_signal(payload, body.exitPrice)
+        previous_records = memory_store.load(symbol=payload["symbol"]) if memory_store is not None else []
+        settlement = settle_last_signal(payload, body.exitPrice, previous_records=previous_records)
         reputation_score = None
         agent = payload.get("agent") or {}
         if isinstance(agent, dict) and isinstance(agent.get("reputation"), dict):
@@ -104,6 +107,13 @@ async def settle(
         record = MemoryRecord.from_analysis(payload, settlement, reputation_score=reputation_score)
         if memory_store is not None:
             memory_store.append(record)
+        if opro_store is not None:
+            adaptive_prompt = (payload.get("memory") or {}).get("adaptivePrompt", {})
+            opro_store.update_from_settlement(
+                prompt_id=adaptive_prompt.get("id"),
+                prompt_template=adaptive_prompt.get("template"),
+                pnl_bps=float(settlement.get("pnlBps") or 0.0),
+            )
         chain_result = submit_reputation_feedback(
             settlement["score"],
             signal_hash=payload["signalHash"],
@@ -111,8 +121,10 @@ async def settle(
             tag2=payload["selection"]["signalDirection"],
             feedback_payload=settlement,
         )
+        chain_result.setdefault("erc8004Feedback", build_reputation_feedback(settlement))
     except Exception as exc:
-        settlement = settle_last_signal(payload, body.exitPrice)
+        previous_records = memory_store.load(symbol=payload["symbol"]) if memory_store is not None else []
+        settlement = settle_last_signal(payload, body.exitPrice, previous_records=previous_records)
         if CHAIN_CONFIGURED:
             chain_result = {
                 "recorded": False,
