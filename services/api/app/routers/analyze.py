@@ -30,7 +30,9 @@ from ..config import (
 )
 from ..data_loader import load_market_data, load_offline
 from ..decision import build_decision_report, signal_hash
+from ..erc8004_adapter import build_erc8004_status
 from ..models import AnalyzeRequest
+from ..proof_bundle import build_proof_bundle
 from ..zktls import ReclaimProofAdapter
 
 router = APIRouter(tags=["analysis"])
@@ -107,6 +109,13 @@ async def analyze(body: AnalyzeRequest, memory_store: Any, opro_store: Any | Non
 
     report = build_decision_report(symbol, data_mode, factor_summary, selection, data_proof=data_proof)
     sig_hash = signal_hash(report)
+    report["signalHash"] = sig_hash
+    execution_intent = build_execution_intent({"symbol": symbol, "selection": selection})
+    proof_bundle = build_proof_bundle(
+        decision_report=report,
+        data_proof=data_proof,
+        execution_intent=execution_intent,
+    )
 
     result = {
         "symbol": symbol,
@@ -131,6 +140,12 @@ async def analyze(body: AnalyzeRequest, memory_store: Any, opro_store: Any | Non
         "memory": memory_context,
         "multiAgent": multi_agent_context,
         "byreal": byreal_status(),
-        "executionIntent": build_execution_intent({"symbol": symbol, "selection": selection}),
+        "executionIntent": execution_intent,
+        "proofBundle": proof_bundle,
+        "erc8004Status": build_erc8004_status(
+            api_base="",
+            agent_status=agent,
+            signal_hash=sig_hash,
+        ),
     }
     return result

@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field, ValidationError, field_validator
 
 from .benchmark import STRATEGY_BENCHMARKS, build_benchmark_chart
 from .finpos import DirectionDecisionAgent, QuantityRiskDecisionAgent
+from .policy_blender import build_policy_output
 
 MODEL_VERSION = "strategy-selector-1.1.0-academic-agent"
 
@@ -631,6 +632,15 @@ def select_strategy(
                 strategy_id = "reversal_trend" if strategy_id in ("macd_bollinger", "breakout_swing") else "range_mean_reversion"
                 drivers = [*drivers, "RiskCritic: consecutive loss override → strategy switched & confidence lowered."][:8]
 
+    policy = build_policy_output(
+        factors=factors,
+        memory_context=memory_context,
+        agent_reputation=agent_reputation,
+        action=direction,
+        base_confidence=confidence,
+    )
+    confidence = policy["policyConfidence"]
+
     bench = STRATEGY_BENCHMARKS[_benchmark_id(strategy_id)]
     regime_key = f"{regime}_sharpe" if f"{regime}_sharpe" in bench else "range_sharpe"
     sharpe = bench.get(regime_key, bench.get("range_sharpe", 0.0))
@@ -700,9 +710,19 @@ def select_strategy(
         "strategyDescription": meta["description"],
         "signalDirection": direction,
         "confidence": confidence,
+        "directionDecision": {
+            "schema": "quantagent.direction-decision.v1",
+            "direction": direction,
+            "regime": regime,
+            "reasoning": direction_decision.reasoning,
+        },
         "topDrivers": drivers,
         "riskWarnings": warnings,
         "positionPlan": position_plan,
+        "policy": policy,
+        "policyScore": policy["policyScore"],
+        "criticValue": policy["criticValue"],
+        "rewardFeatures": policy["rewardFeatures"],
         "benchmarkSummary": benchmark_summary,
         "benchmarkChart": chart,
         "alphaFormula": llm_decision.alphaFormula or default_decision.alphaFormula,

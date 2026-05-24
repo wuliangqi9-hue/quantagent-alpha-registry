@@ -67,6 +67,24 @@ export type Selection = {
     amountPolicy: string;
     positionRationale: string;
   };
+  directionDecision?: {
+    schema: string;
+    direction: string;
+    regime: string;
+    reasoning: string;
+  };
+  policy?: {
+    schema: string;
+    stateVector: Record<string, number>;
+    criticValue: number;
+    policyScore: number;
+    policyConfidence: number;
+    rewardFeatures: Record<string, number>;
+    rationale: string;
+  };
+  policyScore?: number;
+  criticValue?: number;
+  rewardFeatures?: Record<string, number>;
   benchmarkSummary: BenchmarkSummary;
   benchmarkChart: BenchmarkChart;
   alphaFormula?: string;
@@ -98,6 +116,29 @@ export type AgentStatus = {
   error?: string;
 };
 
+export type AgentCard = {
+  schema: string;
+  name: string;
+  description: string;
+  version: string;
+  agentId?: number | null;
+  agentURI?: string;
+  agentRegistry: string;
+  registrations: {
+    namespace: string;
+    chainId: number;
+    identityRegistry: string;
+    reputationRegistry: string;
+    validationRegistry: string;
+    signalRegistryFallback?: string | null;
+    quantAgentExecutor?: string | null;
+  };
+  services: { id: string; type: string; endpoint: string; description: string }[];
+  supportedTrust: string[];
+  x402Support: Record<string, unknown>;
+  cardHash: string;
+};
+
 export type ByrealStatus = {
   configured: boolean;
   mode: string;
@@ -115,6 +156,28 @@ export type ExecutionIntent = {
   action: string;
   sizeHint?: string;
   routeType?: string;
+  routeRationale?: string;
+  expectedSlippageBps?: number;
+  quoteExpiry?: number;
+  executionMode?: string;
+  quote?: {
+    expectedSlippageBps: number;
+    priceImpactBps: number;
+    venue: string;
+    routeType: string;
+    quoteExpiryUnix: number;
+    executionMode: string;
+    rationale: string;
+  };
+  routeDecision?: {
+    selectedRoute: string;
+    venue: string;
+    executionMode: string;
+    expectedSlippageBps: number;
+    mevProtectionRequired: boolean;
+    routeRationale: string;
+    quoteExpiryUnix: number;
+  };
   venuePreference?: string[];
   amountPolicy?: string;
   targetExposure?: number;
@@ -153,6 +216,23 @@ export type DataProof = {
 export type Erc8004Addresses = {
   identityRegistry: string;
   reputationRegistry: string;
+  validationRegistry?: string;
+};
+
+export type ProofBundle = {
+  schema: string;
+  decisionReportHash: string;
+  dataProof?: DataProof;
+  teeAttestation?: TeeAttestation;
+  zktlsProof?: ZktlsProof;
+  executionIntent?: ExecutionIntent;
+  routeDecision?: Record<string, unknown>;
+  settlementHash?: string | null;
+  signalHash?: string;
+  symbol?: string;
+  mode?: string;
+  proofBundleHash: string;
+  messages: string[];
 };
 
 export type Analysis = {
@@ -167,12 +247,15 @@ export type Analysis = {
   signalRegistry?: string;
   quantAgentExecutor?: string;
   erc8004?: Erc8004Addresses;
+  erc8004Status?: Record<string, unknown>;
+  agentCard?: AgentCard;
   explorerBase: string;
   proofMode: string;
   agent: AgentStatus;
   byreal: ByrealStatus;
   executionIntent: ExecutionIntent;
   dataProof?: DataProof;
+  proofBundle?: ProofBundle;
   memory?: MemoryContext;
   multiAgent?: MultiAgentContext;
   decisionReport: Record<string, unknown>;
@@ -190,6 +273,59 @@ export type ChainResult = {
   registryLayer?: string;
   proofURI?: string | null;
   privateMempoolConfigured?: boolean;
+  proofBundleHash?: string;
+  standardReputationFeedback?: Record<string, unknown>;
+};
+
+export type FinposRewards = {
+  immediatePnlBps: number;
+  immediatePnlUsd: number;
+  directionCorrect: boolean;
+  shortWindow: {
+    pnlBps: number;
+    sharpe: number;
+    winRate: number;
+    windowSize: number;
+  };
+  mediumWindow: {
+    pnlBps: number;
+    sharpe: number;
+    winRate: number;
+    windowSize: number;
+  };
+  exposurePenaltyBps: number;
+  compositeScore: number;
+};
+
+export type TeeAttestation = {
+  schema: string;
+  attestationHash: string;
+  enclavePlatform: string;
+  codeMeasurement: string;
+  timestamp: number;
+  metadata: Record<string, unknown>;
+  verified: boolean;
+  message: string;
+};
+
+export type ZktlsProof = {
+  schema: string;
+  proofId: string;
+  provider: string;
+  endpoint: string;
+  proofHash: string;
+  verified: boolean;
+  message: string;
+};
+
+export type OproAdaptation = {
+  schema: string;
+  iteration: number;
+  promptId: string;
+  mutations: string[];
+  performanceDelta: number;
+  selectedTemplate: string;
+  rationale: string;
 };
 
 export type Settlement = {
@@ -207,6 +343,13 @@ export type Settlement = {
   maxDrawdownBps?: number;
   consecutiveLosses?: number;
   settlementHash: string;
+  proofBundleHash?: string;
+  proofBundle?: ProofBundle;
+  finposRewards?: FinposRewards;
+  compositeScore?: number;
+  teeAttestation?: TeeAttestation;
+  zktlsProof?: ZktlsProof;
+  oproAdaptation?: OproAdaptation;
 };
 
 export type DataMode = "auto" | "live" | "offline-demo";

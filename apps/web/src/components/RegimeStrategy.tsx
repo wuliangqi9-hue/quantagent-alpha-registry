@@ -28,6 +28,19 @@ export function RegimeStrategy({ selection }: Props) {
         <span>Confidence</span>
         <strong>{(selection.confidence * 100).toFixed(0)}%</strong>
       </div>
+      {selection.policy && (
+        <>
+          <div className="metric">
+            <span>Policy score</span>
+            <strong>{selection.policy.policyScore.toFixed(3)}</strong>
+          </div>
+          <div className="metric">
+            <span>Critic value</span>
+            <strong>{selection.policy.criticValue.toFixed(3)}</strong>
+          </div>
+          <p style={{ color: "var(--muted)", fontSize: "0.82rem" }}>{selection.policy.rationale}</p>
+        </>
+      )}
       <p style={{ color: "var(--muted)", fontSize: "0.9rem" }}>{selection.explanation}</p>
       {selection.alphaFormula && (
         <div className="formula-box">

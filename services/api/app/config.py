@@ -30,6 +30,11 @@ ERC8004_REPUTATION_REGISTRY_ADDRESS = os.getenv(
     "ERC8004_REPUTATION_REGISTRY_ADDRESS",
     "0x8004BAa17C55a88189AE136b182e5fdA19dE9b63",
 )
+ERC8004_VALIDATION_REGISTRY_ADDRESS = os.getenv(
+    "ERC8004_VALIDATION_REGISTRY_ADDRESS",
+    "",
+)
+AGENT_CARD_BASE_URL = os.getenv("AGENT_CARD_BASE_URL", "")
 PRIVATE_KEY = os.getenv("MANTLE_PRIVATE_KEY", "")
 CHAIN_CONFIGURED = bool(CONTRACT_ADDRESS and PRIVATE_KEY)
 AGENT_ID = int(os.getenv("AGENT_ID", "0") or "0")
@@ -49,5 +54,33 @@ EXPLORER_BASE = os.getenv(
     "MANTLE_EXPLORER_BASE",
     "https://explorer.sepolia.mantle.xyz",
 )
+# ---- TEE / Phala Network ----
+PHALA_TEE_ENABLED = os.getenv("PHALA_TEE_ENABLED", "false").lower() != "false"
+PHALA_ENCLAVE_ENDPOINT = os.getenv("PHALA_ENCLAVE_ENDPOINT", "")
+PHALA_API_KEY = os.getenv("PHALA_API_KEY", "")
+
+# ---- Reclaim Protocol / zkTLS ----
+RECLAIM_ZKTLS_ENABLED = os.getenv("RECLAIM_ZKTLS_ENABLED", "false").lower() != "false"
+RECLAIM_APP_ID = os.getenv("RECLAIM_APP_ID", "")
+RECLAIM_APP_SECRET = os.getenv("RECLAIM_APP_SECRET", "")
+RECLAIM_VERIFIER_ADDRESS = os.getenv(
+    "RECLAIM_VERIFIER_ADDRESS",
+    "0x0000000000000000000000000000000000000000",
+)
+
+# ---- ATLAS Adaptive-OPRO ----
+ATLAS_OPRO_ENABLED = os.getenv("ATLAS_OPRO_ENABLED", "false").lower() != "false"
+ATLAS_MAX_ITERATIONS = int(os.getenv("ATLAS_MAX_ITERATIONS", "20") or "20")
+ATLAS_MUTATION_RATE = float(os.getenv("ATLAS_MUTATION_RATE", "0.15") or "0.15")
+
+# ---- Byreal / RealClaw SDK ----
+BYREAL_SDK_PATH = os.getenv("BYREAL_SDK_PATH", "")
+REALCLAW_API_ENDPOINT = os.getenv("REALCLAW_API_ENDPOINT", "")
+
+# ---- FinPos 多时间尺度奖励 ----
+FINPOS_MULTI_TIMESCALE_ENABLED = os.getenv("FINPOS_MULTI_TIMESCALE_ENABLED", "false").lower() != "false"
+
+# ---- x402 机器支付协议 ----
+X402_ENABLED = bool(BLOCKY402_FACILITATOR_URL and X402_WALLET_ADDRESS)
 
 SUPPORTED_ASSETS = ["BTC", "ETH", "SOL"]

@@ -48,12 +48,12 @@ class X402Client:
         )
 
     def should_pay(self, schema: X402PaymentSchema, alpha_value_bps: float) -> bool:
-        if schema.amountUsd > X402_MAX_AUTO_PAY_USD:
-            return False
-        return alpha_value_bps >= 2.0
+        decision = self.payment_policy(schema, alpha_value_bps=alpha_value_bps)
+        return bool(decision["approved"])
 
     def prepare_payment(self, schema: X402PaymentSchema, *, alpha_value_bps: float) -> dict[str, Any]:
-        approved = self.should_pay(schema, alpha_value_bps)
+        policy = self.payment_policy(schema, alpha_value_bps=alpha_value_bps)
+        approved = bool(policy["approved"])
         return {
             "schema": "quantagent.x402-payment-intent.v1",
             "clientVersion": self.VERSION,
@@ -69,9 +69,45 @@ class X402Client:
                 "resource": schema.resource,
             },
             "alphaValueBps": alpha_value_bps,
+            "paymentAudit": policy,
             "payload": (
                 f"partial-signature:{schema.network}:{schema.asset}:{schema.amountUsd}:{schema.recipient}"
                 if approved
                 else None
             ),
         }
+
+    def payment_policy(
+        self,
+        schema: X402PaymentSchema,
+        *,
+        alpha_value_bps: float,
+        notional_usd: float = 1000.0,
+        gas_cost_usd: float = 0.02,
+        safety_margin_usd: float = 0.03,
+    ) -> dict[str, Any]:
+        expected_alpha_usd = estimate_alpha_value_usd(alpha_value_bps, notional_usd)
+        total_cost = float(schema.amountUsd) + gas_cost_usd + safety_margin_usd
+        approved = schema.amountUsd <= X402_MAX_AUTO_PAY_USD and expected_alpha_usd > total_cost
+        return {
+            "schema": "quantagent.x402-payment-policy.v1",
+            "approved": approved,
+            "resource": schema.resource,
+            "amountUsd": schema.amountUsd,
+            "notionalUsd": notional_usd,
+            "alphaValueBps": alpha_value_bps,
+            "expectedAlphaUsd": round(expected_alpha_usd, 6),
+            "gasCostUsd": gas_cost_usd,
+            "safetyMarginUsd": safety_margin_usd,
+            "totalCostUsd": round(total_cost, 6),
+            "maxAutoPayUsd": X402_MAX_AUTO_PAY_USD,
+            "reason": (
+                "expected alpha exceeds data cost plus gas and safety margin"
+                if approved
+                else "payment held: expected alpha or max-auto-pay policy did not justify purchase"
+            ),
+        }
+
+
+def estimate_alpha_value_usd(alpha_value_bps: float, notional_usd: float) -> float:
+    return max(0.0, float(alpha_value_bps)) / 10000.0 * max(0.0, float(notional_usd))

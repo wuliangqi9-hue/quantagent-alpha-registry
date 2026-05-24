@@ -68,7 +68,7 @@ export default function App() {
 
           <ExecutionPanel data={data} />
 
-          <RiskBenchmark selection={data.selection} />
+          <RiskBenchmark selection={data.selection} settlement={settlement} />
 
           <PriceChart chart={data.selection.benchmarkChart} />
 

@@ -71,7 +71,16 @@ export function useAnalysis() {
       });
       if (!res.ok) throw new Error(`Settle failed (${res.status})`);
       const payload = await res.json();
-      setSettlement(payload.settlement);
+      const s = payload.settlement || {};
+      // 将后端可能返回的嵌套字段映射到 Settlement 类型
+      setSettlement({
+        ...s,
+        finposRewards: s.finposRewards ?? s.finpos_rewards ?? undefined,
+        compositeScore: s.compositeScore ?? s.composite_score ?? undefined,
+        teeAttestation: s.teeAttestation ?? s.tee_attestation ?? undefined,
+        zktlsProof: s.zktlsProof ?? s.zktls_proof ?? undefined,
+        oproAdaptation: s.oproAdaptation ?? s.opro_adaptation ?? undefined,
+      });
       setSettlementChain(payload.chain);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unknown error");

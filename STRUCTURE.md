@@ -1,241 +1,189 @@
 # Project Structure
 
-This document describes the current engineering structure for the hackathon MVP.
+This repository is organized around a single judged flow:
 
-## Repository Layout
+```text
+market state -> policy decision -> execution route -> proof bundle -> settlement feedback
+```
+
+## Top Level
 
 ```text
 黑客松/
-  README.md
-  GOALS.md
-  STRUCTURE.md
-  Dockerfile
-  render.yaml
-  docs/
-    architecture.md
-    api-examples.md
-    deployment.md
-    milestones.md
-    risk-register.md
-    demo-script.md
-    judging-checklist.md
-    factor-notes.md
-    submission-story.md
-  apps/
-    web/
-      README.md
-      package.json
-      src/
-  services/
-    api/
-      README.md
-      requirements.txt
-      app/
-  packages/
-    agent-memory/
-      README.md
-      agent_memory/
-    agent-orchestrator/
-      README.md
-      agent_orchestrator/
-    factor-engine/
-      README.md
-      crypto_factors/
-      factor_engine/
-    strategy-selector/
-      README.md
-      strategy_selector/
-  contracts/
-    README.md
-    contracts/
-    scripts/
-  data/
-    sample/
-  experiments/
-    README.md
-  references/
-    papers/
-      finmem/
-      quantagent/
-  submissions/
-    dorahacks/
-      pitch.md
-      demo-video-outline.md
-      final-checklist.md
+  apps/web/                 React dashboard
+  services/api/             FastAPI orchestration
+  packages/                 Reusable strategy, factor, memory, and agent modules
+  contracts/                Mantle Solidity contracts
+  data/sample/              Offline BTC/ETH/SOL data
+  docs/                     Architecture and submission notes
+  submissions/dorahacks/    Pitch and final checklist
+  scripts/                  Local run, smoke, and Agent Card helper scripts
 ```
 
-## Module Responsibilities
+## `services/api`
 
-### `apps/web`
+FastAPI is the integration layer. It coordinates market data, factors, policy,
+execution routing, proofs, settlement memory, and chain adapters.
 
-React dashboard for judges and users.
+Important files:
 
-Current screens:
+- `app/routers/analyze.py`
+  Builds factor summary, multi-agent context, strategy selection, execution
+  intent, decision report, signal hash, and initial ProofBundle.
 
-- asset and data-mode controls;
-- factor radar and factor bar chart;
-- Agent Passport with identity, validation, reputation, and Byreal status;
-- market regime and selected strategy panel;
-- benchmark chart with caveats;
-- risk warning panel;
-- Mantle proof panel;
-- submission posture notes.
+- `app/routers/signal.py`
+  Records the latest signal, settles PnL, appends memory, generates TEE/zkTLS
+  proof fields, builds final ProofBundle, and creates ERC-8004-compatible
+  reputation feedback.
 
-### `services/api`
+- `app/routers/agent.py`
+  Serves `/api/agent/card` and `/api/agent/erc8004`.
 
-FastAPI backend that coordinates the demo flow.
+- `app/agent_card.py`
+  Builds the Agent Registration File with `services`, `registrations`,
+  `supportedTrust`, `x402Support`, and `cardHash`.
 
-Responsibilities:
+- `app/erc8004_adapter.py`
+  Provides a stable identity / validation / reputation boundary. It returns
+  structured fallback states when live registry values are not configured.
 
-- serve the built React dashboard in single-service deployments;
-- expose `/api/*` routes for the frontend;
-- load live market data when available;
-- fall back to `data/sample/` snapshots for reliable demos;
-- call the factor engine;
-- call the strategy selector;
-- build the decision report and signal hash;
-- expose Byreal/RealClaw execution intent;
-- submit or clearly label Mantle proof mode.
-- settle a signal and write reputation feedback when configured.
-- retrieve FinMem-inspired memory and build QuantAgent-inspired multi-agent context.
+- `app/proof_bundle.py`
+  Creates canonical proof bundles and proof hashes.
 
-Public API endpoints:
+- `app/execution.py`
+  Implements Byreal/RealClaw quote -> route -> receipt abstractions.
 
-- `GET /api/health`
-- `GET /api/assets`
-- `POST /api/analyze`
-- `POST /api/record-signal`
-- `GET /api/agent`
-- `POST /api/agent/register`
-- `GET /api/byreal/status`
-- `POST /api/settle`
-- `GET /api/memory`
-- `GET /api/demo/sample`
+- `app/reclaim.py`, `app/tee.py`, `app/x402.py`
+  Live-ready adapters with deterministic fallback behavior.
 
-Unprefixed routes also exist for local development and FastAPI docs.
+- `tests/test_api_flow.py`
+  End-to-end API baseline for supported assets.
 
-### `packages/factor-engine`
+## `apps/web`
 
-Reusable factor computation module adapted from the existing crypto factor
-research.
+The dashboard is an agent cockpit, not a marketing page.
 
-Current factor groups:
+Important panels:
+
+- `AgentPassport.tsx`
+  ERC-8004 registry path, agent URI, validation status, reputation, memory,
+  Byreal mode, and risk profile.
+
+- `RegimeStrategy.tsx`
+  Market regime, selected strategy, confidence, QTMRL policy score, critic value,
+  AlphaGPT-style formula, and top drivers.
+
+- `ExecutionPanel.tsx`
+  Target exposure, route type, venue, slippage, MEV posture, quote expiry,
+  execution mode, route rationale, and x402 audit.
+
+- `MantleProofPanel.tsx`
+  Signal hash, ProofBundle hash, data proof, TEE, zkTLS, settlement, and copy
+  actions for decision report / ProofBundle JSON.
+
+## `packages/factor-engine`
+
+Computes chart-ready crypto factor summaries. Current factors include:
 
 - momentum;
 - volatility;
 - trend;
 - volume pressure;
-- funding rate;
+- funding;
 - open interest.
 
-Optional later factors:
+The next high-value extension is Mantle-native factors: gas congestion, DEX
+liquidity shock, smart-money flow, and slippage pressure.
 
-- MVRV;
-- SOPR;
-- smart-money wallet flow;
-- DEX liquidity shock;
-- order book imbalance;
-- options implied-volatility skew.
+## `packages/strategy-selector`
 
-### `packages/strategy-selector`
+Converts factors and memory into a strategy decision.
 
-Strategy selection logic based on factor state, market regime, and prior
-QuantAgent/Hummingbot workflow evidence.
+Important files:
 
-Initial strategy pool:
+- `selector.py`
+  Main selection pipeline: regime, strategy, guardrails, benchmark evidence,
+  position plan, policy output, prompt fields.
 
-- SuperTrend;
-- Bollinger;
-- MACD + Bollinger.
+- `finpos.py`
+  Direction and quantity/risk decision agents.
 
-Outputs:
+- `policy_blender.py`
+  QTMRL/A2C-style state vector, critic value, policy score, confidence blending,
+  and reward features.
 
-- `strategyId`;
-- `strategyName`;
-- signal direction;
-- confidence;
-- explanation;
-- risk warnings;
-- benchmark summary;
-- chart-ready benchmark data.
-- AlphaGPT-style formula and rationale;
-- FinMem memory summary;
-- QuantAgent multi-agent context.
+- `benchmark.py`
+  Benchmark constants and chart markers for judge-facing evidence.
 
-### `packages/agent-memory`
+## `packages/agent-memory`
 
-Production module inspired by FinMem.
+Persistent settlement memory inspired by FinMem.
 
-Responsibilities:
+- `store.py` keeps JSONL records and retrieves similar prior settlements by
+  recency, importance, factor similarity, and PnL impact.
+- `atlas_opro.py` tracks prompt variants and updates their performance after settlement.
 
-- persist settlement memories as JSONL;
-- retrieve similar memories by recency, importance, factor similarity, and PnL impact;
-- expose latest PnL and summary fields for strategy reflection.
+Runtime memory files are generated under `data/` unless `MEMORY_STORE_PATH` and
+`ATLAS_OPRO_STORE_PATH` are overridden. They are not required in git.
 
-### `packages/agent-orchestrator`
+## `packages/agent-orchestrator`
 
-Production module inspired by QuantAgent's agent graph.
+Deterministic multi-agent context inspired by QuantAgent.
 
-Responsibilities:
+Sub-agents:
 
-- build deterministic indicator, flow, memory, reputation, and risk critic reports;
-- provide structured context to the strategy selector and frontend;
-- keep the multi-agent shape without requiring a heavy graph runtime for the MVP.
+- Indicator agent;
+- Flow agent;
+- Memory agent;
+- Reputation agent;
+- Risk critic;
+- A2C policy skeleton.
 
-### `contracts`
+The output is consumed by the strategy selector and dashboard.
 
-Mantle agent registry layer.
+## `contracts`
 
-Core contract functions:
+Solidity contracts and Hardhat config.
 
-```solidity
-register(string agentURI)
-recordSignalForAgent(uint256 agentId, bytes32 signalHash, string symbol, string strategyId, string modelVersion, string mode, address validatorAddress, string proofURI, bytes32 proofHash)
-giveFeedback(uint256 agentId, int128 value, uint8 valueDecimals, string tag1, string tag2, string endpoint, string feedbackURI, bytes32 feedbackHash)
-```
+- `SignalRegistry.sol`
+  Project fallback registry for agent identity-inspired signal recording,
+  validation request metadata, and reputation feedback.
 
-The contract emits identity, validation, and reputation events and does not
-custody funds or execute trades. It exists to prove decision traceability and
-agent accountability.
+- `QuantAgentExecutor.sol`
+  Reclaim-compatible proof-gate shape for zkTLS-verified execution intents.
 
-### `data/sample`
+- `ERC8004AgentCard.sol`
+  Experimental on-chain Agent Card metadata storage helper.
 
-Offline BTC, ETH, and SOL snapshots.
+Generated `cache/`, build-info, and debug artifacts should stay out of git.
 
-This is a deliberate reliability feature: the demo can continue if live APIs are
-slow, blocked, or rate-limited.
+## `scripts`
 
-### `experiments`
+- `smoke_test.py`
+  Offline strategy smoke test for BTC, ETH, SOL.
 
-Judge-friendly benchmark provenance and caveats.
+- `register_agent_card.py`
+  Prints the canonical Agent Card and next steps for public hosting /
+  ERC-8004 registration.
 
-The MVP embeds compact benchmark constants in the strategy selector; this folder
-explains where the evidence came from and how it should be presented.
+- `run_api.ps1`, `run_web.ps1`
+  Local development runners.
 
-### `references/papers`
+## Cleanup Policy
 
-Sanitized MIT-licensed source snapshots copied for architecture reference only.
-They are not imported by runtime code.
+Safe to remove:
 
-Current references:
+- `.pytest_cache/`;
+- `.ruff_cache/`;
+- `__pycache__/`;
+- `apps/web/dist/`;
+- `contracts/cache/`;
+- runtime `data/agent_memory.jsonl` and `data/atlas_opro.jsonl`.
 
-- FinMem source snapshot for memory database, recency/importance scoring, and reflection flow.
-- QuantAgent source snapshot for multi-agent graph structure and analyst/decision-agent split.
+Do not remove unless intentionally resetting the local environment:
 
-### `submissions/dorahacks`
-
-Final submission materials:
-
-- pitch;
-- demo video outline;
-- final checklist.
-
-## Completion Path
-
-1. Deploy the Docker single-service app to a public URL.
-2. Deploy `SignalRegistry` to Mantle Sepolia or the official required network.
-3. Register the agent and configure `AGENT_ID`, `VALIDATOR_ADDRESS`, `SIGNAL_REGISTRY_ADDRESS`, and `MANTLE_PRIVATE_KEY` in the public service.
-4. Record at least one real signal and save the Mantle explorer link.
-5. Settle one signal and save the reputation feedback evidence.
-6. Record the 2-3 minute demo video.
-7. Submit public app URL, repository, video, and contract/explorer link.
+- `apps/web/node_modules/`;
+- `contracts/node_modules/`;
+- `services/api/.venv/`;
+- `data/sample/`;
+- `references/papers/`.

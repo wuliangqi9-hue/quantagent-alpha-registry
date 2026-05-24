@@ -37,5 +37,23 @@ module.exports = {
       chainId: Number(process.env.MANTLE_CHAIN_ID || 5003),
       accounts: process.env.MANTLE_PRIVATE_KEY ? [process.env.MANTLE_PRIVATE_KEY] : [],
     },
+    mantleMainnet: {
+      url: process.env.MANTLE_MAINNET_RPC_URL || "https://rpc.mantle.xyz",
+      chainId: 5000,
+      accounts: process.env.MANTLE_MAINNET_PRIVATE_KEY
+        ? [process.env.MANTLE_MAINNET_PRIVATE_KEY]
+        : process.env.MANTLE_PRIVATE_KEY
+          ? [process.env.MANTLE_PRIVATE_KEY]
+          : [],
+    },
+    byrealTestnet: {
+      url: process.env.BYREAL_RPC_URL || "https://rpc-testnet.byreal.io",
+      chainId: Number(process.env.BYREAL_CHAIN_ID || 6868),
+      accounts: process.env.BYREAL_PRIVATE_KEY
+        ? [process.env.BYREAL_PRIVATE_KEY]
+        : process.env.MANTLE_PRIVATE_KEY
+          ? [process.env.MANTLE_PRIVATE_KEY]
+          : [],
+    },
   },
 };

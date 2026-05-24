@@ -1,44 +1,65 @@
 # Project Status
 
-Current state: hackathon MVP is implemented locally and prepared for public
-deployment.
+Current state: **参赛级 demo baseline is implemented and tested locally.**
+
+The repository now has a stable end-to-end path for:
+
+```text
+analyze -> record signal -> settle -> proof bundle -> reputation feedback
+```
 
 ## Implemented
 
-- Factor engine adapted from prior crypto factor research.
-- Offline BTC, ETH, and SOL demo snapshots.
-- Live Binance data path with offline fallback.
-- Strategy selector with regime classification.
-- Strategy selector now includes paper-inspired AlphaGPT formula fields, FinMem reputation guardrails, and QuantAgent settlement reflection hooks.
-- FinMem-inspired production memory store is connected to `/api/analyze`, `/api/settle`, and `/api/memory`.
-- QuantAgent-inspired production multi-agent context feeds selector and frontend reports.
-- Benchmark evidence and risk caveats.
-- FastAPI backend with `/api/*` routes.
-- React dashboard with factor charts, Agent Passport, benchmark chart, risk panel, and proof panel.
-- Decision report JSON and SHA-256 signal hash.
-- Solidity `SignalRegistry` contract with ERC-8004-inspired identity, validation, and reputation layers.
-- Dynamic gas estimation and optional private/protected RPC configuration.
-- Byreal/RealClaw execution-intent adapter with simulation fallback.
-- Reputation settlement endpoint for post-signal feedback.
-- Docker single-service deployment path.
-- DoraHacks pitch, demo outline, and final checklist.
-- Sanitized FinMem and QuantAgent source snapshots under `references/papers/` for future architecture extraction.
+- FastAPI endpoints for health, assets, analysis, signal recording, settlement,
+  memory, agent status, Agent Card, and ERC-8004 status.
+- End-to-end API tests for BTC, ETH, and SOL offline-demo flow.
+- React dashboard with Agent Passport, ProofBundle, execution routing, policy
+  scoring, risk, benchmark, TEE, zkTLS, ATLAS, and x402 panels.
+- Canonical decision report hashing and ProofBundle hashing.
+- ERC-8004-compatible Agent Registration File at `/api/agent/card`.
+- ERC-8004 adapter boundary for identity, validation, and reputation payloads.
+- Project fallback `SignalRegistry.sol` for Mantle signal anchoring and
+  reputation feedback.
+- Reclaim-compatible `QuantAgentExecutor.sol` proof-gate contract shape.
+- Byreal/RealClaw execution abstraction: quote -> route -> receipt.
+- FinPos position plan and QTMRL/A2C-style policy scoring.
+- FinMem-inspired JSONL memory and ATLAS prompt variant feedback loop.
+- x402 payment policy audit with expected-alpha-vs-cost reasoning.
+- Demo-safe fallback modes for unconfigured live providers.
 
-## Not Yet Final
+## Verified
 
-- Public app URL is not filled in.
-- `SignalRegistry` deployment address is not filled in.
-- `AGENT_ID` and `VALIDATOR_ADDRESS` are not filled in.
-- Real Mantle explorer transaction is not saved yet.
-- Real validation and reputation feedback events are not saved yet.
-- Demo video is not recorded yet.
+```powershell
+python -m pytest services\api\tests
+python -m unittest discover packages\strategy-selector\tests
+python scripts\smoke_test.py
+npm run build       # in apps/web
+npm run compile     # in contracts
+```
 
-## Recommended Next Actions
+Notes:
 
-1. Deploy the Docker app publicly.
-2. Deploy `SignalRegistry` to Mantle Sepolia or required network.
-3. Register the agent identity and configure `AGENT_ID` plus `VALIDATOR_ADDRESS`.
-4. Configure public environment variables, including private/protected RPC if available.
-5. Record one real signal proof and one reputation feedback.
-6. Record demo video.
-7. Submit DoraHacks materials.
+- The frontend build currently emits only a Vite chunk-size warning.
+- Generated caches, build outputs, and runtime JSONL files are not required in git.
+
+## Not Live Yet
+
+- Official ERC-8004 Identity Registry registration is not executed from this repo.
+- `SIGNAL_REGISTRY_ADDRESS`, `AGENT_ID`, and `VALIDATOR_ADDRESS` still need real
+  deployment values for final on-chain mode.
+- Byreal/RealClaw execution is structured and simulated unless credentials are configured.
+- Reclaim zkTLS and Phala TEE return deterministic proof metadata unless live credentials are configured.
+- x402 payment flow produces auditable payment intents, but facilitator
+  `/verify` and `/settle` are not wired as hard dependencies.
+- Public app URL and demo video are not filled in.
+
+## Next Best Actions
+
+1. Deploy the single-service app publicly.
+2. Deploy or configure the Mantle proof contract path.
+3. Host the Agent Card and register it through the official ERC-8004 path.
+4. Configure `AGENT_ID`, `VALIDATOR_ADDRESS`, `SIGNAL_REGISTRY_ADDRESS`, and
+   `MANTLE_PRIVATE_KEY`.
+5. Record one real signal transaction and one reputation feedback transaction.
+6. Add 2-3 Mantle-native factors for stronger ecosystem fit.
+7. Record the final 2-3 minute demo video.

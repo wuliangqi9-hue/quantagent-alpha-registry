@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import type { Analysis, ChainResult, Settlement } from "../types";
+import type { Analysis, ChainResult, FinposRewards, OproAdaptation, Settlement, TeeAttestation, ZktlsProof } from "../types";
 
 const shortHash = (value: string | null | undefined): string =>
   value ? `${value.slice(0, 10)}…${value.slice(-8)}` : "Not configured";
@@ -11,6 +11,111 @@ const proofLabel = (chain: ChainResult | null, hasContract: boolean): string => 
   return "Ready to record";
 };
 
+const FinposRewardRow = ({ rewards }: { rewards?: FinposRewards }) => {
+  if (!rewards) return null;
+  return (
+    <>
+      <h2 style={{ marginTop: 16 }}>FinPos Multi‑timescale Rewards</h2>
+      <div className="metric">
+        <span>Immediate PnL (bps)</span>
+        <strong>{rewards.immediatePnlBps.toFixed(2)}</strong>
+      </div>
+      <div className="metric">
+        <span>Direction correct</span>
+        <strong style={{ color: rewards.directionCorrect ? "var(--accent)" : "var(--danger)" }}>
+          {rewards.directionCorrect ? "✓" : "✗"}
+        </strong>
+      </div>
+      <div className="metric">
+        <span>Short‑window PnL ({rewards.shortWindow.windowSize})</span>
+        <strong>{rewards.shortWindow.pnlBps.toFixed(2)}</strong>
+      </div>
+      <div className="metric">
+        <span>Short‑window Sharpe</span>
+        <strong>{rewards.shortWindow.sharpe.toFixed(3)}</strong>
+      </div>
+      <div className="metric">
+        <span>Medium‑window PnL ({rewards.mediumWindow.windowSize})</span>
+        <strong>{rewards.mediumWindow.pnlBps.toFixed(2)}</strong>
+      </div>
+      <div className="metric">
+        <span>Exposure penalty (bps)</span>
+        <strong>{rewards.exposurePenaltyBps.toFixed(2)}</strong>
+      </div>
+      <div className="metric">
+        <span>Composite score</span>
+        <strong>{rewards.compositeScore.toFixed(4)}</strong>
+      </div>
+    </>
+  );
+};
+
+const TeeAttestationRow = ({ tee }: { tee?: TeeAttestation }) => {
+  if (!tee) return null;
+  return (
+    <>
+      <h2 style={{ marginTop: 16 }}>TEE Attestation</h2>
+      <div className={`proof-state ${tee.verified ? "recorded" : "demo"}`}>
+        {tee.verified ? "Attestation verified" : "Attestation pending"}
+      </div>
+      <div className="metric">
+        <span>Platform</span>
+        <strong>{tee.enclavePlatform}</strong>
+      </div>
+      <div className="hash">{shortHash(tee.attestationHash)}</div>
+      <div className="metric">
+        <span>Code measurement</span>
+        <strong style={{ fontSize: "0.65rem" }}>{shortHash(tee.codeMeasurement)}</strong>
+      </div>
+    </>
+  );
+};
+
+const ZktlsProofRow = ({ proof }: { proof?: ZktlsProof }) => {
+  if (!proof) return null;
+  return (
+    <>
+      <h2 style={{ marginTop: 16 }}>zkTLS Data Provenance</h2>
+      <div className={`proof-state ${proof.verified ? "recorded" : "demo"}`}>
+        {proof.verified ? "Zero‑knowledge proof verified" : "ZK proof pending"}
+      </div>
+      <div className="metric">
+        <span>Provider</span>
+        <strong>{proof.provider}</strong>
+      </div>
+      <div className="metric">
+        <span>Endpoint</span>
+        <strong style={{ fontSize: "0.75rem" }}>{proof.endpoint}</strong>
+      </div>
+      <div className="hash">{shortHash(proof.proofHash)}</div>
+    </>
+  );
+};
+
+const OproAdaptationRow = ({ opro }: { opro?: OproAdaptation }) => {
+  if (!opro) return null;
+  return (
+    <>
+      <h2 style={{ marginTop: 16 }}>ATLAS Adaptive‑OPRO</h2>
+      <div className="metric">
+        <span>Iteration</span>
+        <strong>#{opro.iteration}</strong>
+      </div>
+      <div className="metric">
+        <span>Mutations applied</span>
+        <strong>{opro.mutations.length}</strong>
+      </div>
+      <div className="metric">
+        <span>Performance delta</span>
+        <strong style={{ color: opro.performanceDelta >= 0 ? "var(--accent)" : "var(--danger)" }}>
+          {opro.performanceDelta > 0 ? "+" : ""}{opro.performanceDelta.toFixed(4)}
+        </strong>
+      </div>
+      <p className="note">{opro.rationale}</p>
+    </>
+  );
+};
+
 type Props = {
   data: Analysis;
   chain: ChainResult | null;
@@ -20,6 +125,7 @@ type Props = {
 
 export function MantleProofPanel({ data, chain, settlement, settlementChain }: Props) {
   const [copied, setCopied] = useState(false);
+  const [copiedBundle, setCopiedBundle] = useState(false);
 
   const copyReport = useCallback(async () => {
     if (!data) return;
@@ -27,6 +133,14 @@ export function MantleProofPanel({ data, chain, settlement, settlementChain }: P
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1600);
   }, [data]);
+
+  const copyProofBundle = useCallback(async () => {
+    const bundle = settlement?.proofBundle || data.proofBundle;
+    if (!bundle) return;
+    await navigator.clipboard.writeText(JSON.stringify(bundle, null, 2));
+    setCopiedBundle(true);
+    window.setTimeout(() => setCopiedBundle(false), 1600);
+  }, [data.proofBundle, settlement?.proofBundle]);
 
   return (
     <section className="panel span-4">
@@ -50,6 +164,14 @@ export function MantleProofPanel({ data, chain, settlement, settlementChain }: P
         <span>API proof mode</span>
         <strong style={{ fontSize: "0.75rem" }}>{data.proofMode}</strong>
       </div>
+      {(settlement?.proofBundleHash || data.proofBundle?.proofBundleHash) && (
+        <>
+          <div className="metric">
+            <span>Proof bundle hash</span>
+          </div>
+          <div className="hash">{settlement?.proofBundleHash || data.proofBundle?.proofBundleHash}</div>
+        </>
+      )}
       {data.dataProof && (
         <>
           <div className="metric">
@@ -139,6 +261,16 @@ export function MantleProofPanel({ data, chain, settlement, settlementChain }: P
             <span>Loss streak</span>
             <strong>{settlement.consecutiveLosses ?? 0}</strong>
           </div>
+          {settlement.compositeScore != null && (
+            <div className="metric">
+              <span>FinPos composite</span>
+              <strong>{settlement.compositeScore.toFixed(4)}</strong>
+            </div>
+          )}
+          <FinposRewardRow rewards={settlement.finposRewards} />
+          <TeeAttestationRow tee={settlement.teeAttestation} />
+          <ZktlsProofRow proof={settlement.zktlsProof} />
+          <OproAdaptationRow opro={settlement.oproAdaptation} />
           <div className={`proof-state ${settlementChain?.recorded ? "recorded" : "demo"}`}>
             {settlementChain?.recorded ? "Reputation written" : "Reputation demo"}
           </div>
@@ -148,6 +280,11 @@ export function MantleProofPanel({ data, chain, settlement, settlementChain }: P
       <button className="secondary full-width" onClick={copyReport}>
         {copied ? "Decision report copied" : "Copy decision report JSON"}
       </button>
+      {(settlement?.proofBundle || data.proofBundle) && (
+        <button className="secondary full-width" onClick={copyProofBundle}>
+          {copiedBundle ? "Proof bundle copied" : "Copy proof bundle JSON"}
+        </button>
+      )}
       <p className="note">
         The signal hash is computed from this canonical decision report.
       </p>

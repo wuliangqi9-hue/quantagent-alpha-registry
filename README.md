@@ -1,205 +1,198 @@
 # QuantAgent Alpha Registry
 
-QuantAgent turns crypto factor research into an explainable, backtestable, and
-on-chain auditable AI trading agent on Mantle.
+QuantAgent Alpha Registry is an ERC-8004-compatible Mantle trading-agent
+prototype. It turns factor research into a verifiable decision trail:
 
-## Built MVP
-
-- **Factor engine** — adapted from `crypto_factor_module` (market, derivative, on-chain factors)
-- **Strategy selector** — SuperTrend / Bollinger / MACD+Bollinger with regime classification
-- **API** — FastAPI with live Binance fallback to `data/sample/`
-- **Dashboard** — React + Recharts factor radar, benchmark chart, Agent Passport, Mantle proof panel
-- **Contract** — `SignalRegistry.sol` provides an ERC-8004-inspired identity, validation, and reputation registry
-- **Byreal adapter** — execution-intent layer for RealClaw/Byreal routing, with safe simulation fallback
-- **Agent memory** — FinMem-inspired settlement memory with recency, importance, and PnL-impact retrieval
-- **Multi-agent context** — QuantAgent-inspired indicator, flow, memory, reputation, and risk critic reports
-
-## Why it is different
-
-Most AI trading demos stop at an answer. QuantAgent Alpha Registry records a
-decision trail:
-
-- factor scores and strategy reasoning are generated off-chain;
-- the decision report is hashed;
-- the hash and metadata are recorded through a Mantle proof layer;
-- a registered agent identity can request validation and receive reputation feedback;
-- the UI keeps risk caveats and proof mode visible.
-
-## Academic Foundations
-
-This project fuses production code from four academic pillars. Each source
-paper drives specific runtime modules, not just a citations list.
-
-| Paper | Code Location | What It Drives |
-|-------|--------------|----------------|
-| **FinMem** (2024) – Episodic Memory for Financial RL | `packages/agent-memory/` | JSONL memory store with recency, importance, similarity, and PnL-impact retrieval; `/api/settle` → `MemoryRecord.from_analysis()` → `store.append()` → next `/api/analyze` consumes retrieved memories |
-| **QuantAgent** (2025) – Self-Improving LLM Agent | `packages/strategy-selector/selector.py` | Outer-loop PnL self-reflection: losing >50 bps → deduct confidence 0.12 + add warning; winning >50 bps → reward 0.02; reflection text injected into next System Prompt |
-| **QuantAgent** (2025) – Multi-Agent Collaboration | `packages/agent-orchestrator/` | Five deterministic sub-agents (Indicator, Flow, Memory, Reputation, Risk Critic); reports fed into selector via `multi_agent_context` |
-| **AlphaGPT** (2023) – LLM-Generated Alpha Factors | `packages/strategy-selector/selector.py` | Dynamic-rank alpha formula with regime-aware weights (e.g., `decay_linear(momentum,6)`); conservative mode adjusts volatility penalty from 0.30 → 0.45 |
-| **EIP-8004** – Trustless Agent Identity | `contracts/contracts/SignalRegistry.sol` | ERC-8004-inspired identity (agent NFT), validation (proof request), and reputation (settlement feedback) on Mantle; zkML proofHash anchor reserved for future verifiability |
-
-## Contract Architecture
-
-| Contract | Owner | Role |
-|----------|-------|------|
-| `SignalRegistry.sol` | **Project-deployed** (own contract) | Agent identity NFT, validation proof requests, reputation settlement — ERC-8004-inspired |
-| `QuantAgentExecutor.sol` | **Project-deployed** (own contract) | zkTLS proof gate: verifies Reclaim-compatible `IReclaim.verifyProof` before anchoring execution intents |
-| ERC-8004 IdentityRegistry | External/official registry (read-only) | Standard ERC-8004 identity lookups |
-| ERC-8004 ReputationRegistry | External/official registry (read-only) | Standard ERC-8004 reputation queries |
-
-**Reclaim compatibility note**: `QuantAgentExecutor` defines a minimal `IReclaim` interface
-matching the official `@reclaimprotocol/verifier-solidity-sdk` struct layout (see
-`contracts/contracts/QuantAgentExecutor.sol`). This avoids importing the SDK's inline-assembly
-source during compilation while calling the same on-chain verifier. The `RECLAIM_*` env vars are
-reserved for future full SDK integration.
-
-**x402 pipeline**: current status is simulation / facilitator-ready. The `X402Client`
-in `services/api/app/x402.py` parses HTTP 402 metadata and prepares Blocky402
-payment intents deterministically; a live facilitator call can replace
-`prepare_payment` without touching callers.
-
-**Byreal / RealClaw**: current status is adapter / simulation-ready. Real SDK
-credentials configured via `BYREAL_API_BASE` / `BYREAL_API_KEY` will switch
-from simulation to live RFQ execution-intent routing.
-
-## Full End-to-End Flow
-
-```mermaid
-flowchart LR
-  A["Analyze: factor scores + strategy reasoning"] --> B["FinPos PositionPlan: direction, exposure, risk"]
-  B --> C["QTMRL A2C: policy-weighted action recommendation"]
-  C --> D["RFQ ExecutionIntent: route type, venue, slippage"]
-  D --> E["zkTLS DataProof: Reclaim-compatible proof gate"]
-  E --> F["Record Signal: SignalRegistry anchor on Mantle"]
-  F --> G["Settle: PnL, drawdown, win rate feedback"]
-  G --> H["ERC-8004 Feedback: identity + reputation update"]
+```text
+market data -> factor summary -> FinPos/QTMRL policy -> Byreal route decision
+-> ProofBundle -> Mantle signal anchor -> settlement -> reputation feedback
 ```
 
-## Architecture
+The project is built for the Mantle Turing Test / DoraHacks judging context:
+transparent agent identity, auditable decision hashes, explicit execution
+routing, and clear demo/live boundaries.
 
-```mermaid
-flowchart LR
-  A["Judge/User"] --> B["React dashboard"]
-  B --> C["FastAPI /api"]
-  C --> D["Factor engine"]
-  C --> E["Strategy selector"]
-  C --> F["Decision report + hash"]
-  F --> G["SignalRegistry on Mantle"]
-  G --> H["Identity Registry: agent NFT"]
-  G --> I["Validation Registry: signal proof request"]
-  G --> J["Reputation Registry: settlement feedback"]
-  G --> K["Mantle Explorer proof"]
-```
+## What Is Implemented
 
-## Quick start
+- **FastAPI orchestration** under `services/api/`
+  - `/api/analyze` builds factor summaries, policy decisions, execution routes, and ProofBundles.
+  - `/api/record-signal` anchors the latest decision through the configured Mantle proof path or a labeled demo path.
+  - `/api/settle` computes PnL, writes memory, emits TEE/zkTLS proof fields, and builds ERC-8004-compatible feedback.
+  - `/api/agent/card` serves a deterministic Agent Registration File with `services`, `x402Support`, `registrations`, and `supportedTrust`.
 
-Localhost is for development only. The final DoraHacks submission must use a
-public app URL and must not submit `localhost`, `127.0.0.1`, or a private LAN
-address as the demo link.
+- **React dashboard** under `apps/web/`
+  - Agent Passport with ERC-8004 registry path, identity status, validation status, reputation, and memory.
+  - Factor, regime, QTMRL policy, benchmark, route decision, x402 audit, and ProofBundle panels.
 
-### 1. Smoke test (offline)
+- **Strategy stack** under `packages/`
+  - Factor engine for market, derivative, and on-chain-compatible factor summaries.
+  - FinPos-style direction and position sizing.
+  - QTMRL/A2C-inspired policy scoring via `policy_blender.py`.
+  - FinMem-inspired settlement memory.
+  - QuantAgent-style multi-agent context with indicator, flow, memory, reputation, and risk critic reports.
+
+- **Trust and execution adapters**
+  - ERC-8004-compatible Agent Card and adapter boundary.
+  - Canonical ProofBundle hash tying decision report, data proof, route decision, TEE, zkTLS, and settlement.
+  - Byreal/RealClaw quote -> route -> receipt abstraction with simulation fallback.
+  - Reclaim zkTLS and Phala TEE adapters with deterministic fallback fields.
+  - x402 payment policy audit with expected alpha vs data cost.
+
+- **Contracts**
+  - `SignalRegistry.sol`: project fallback registry for identity-inspired signal anchoring and reputation feedback.
+  - `QuantAgentExecutor.sol`: Reclaim-compatible proof gate shape for live zkTLS verification.
+  - `ERC8004AgentCard.sol`: on-chain metadata helper for Agent Card experiments.
+
+## Demo And Live Modes
+
+The system is intentionally explicit about mode:
+
+| Mode | Meaning |
+|---|---|
+| `demo-proof` | No Mantle private key or registry address is configured. The API returns deterministic proof metadata without pretending a transaction happened. |
+| `real-onchain` | `SIGNAL_REGISTRY_ADDRESS` and `MANTLE_PRIVATE_KEY` are configured, so signal/reputation writes can submit transactions. |
+| `fallback-demo` | ERC-8004-compatible payloads are produced, but official registry writes are not configured. |
+| `standard-ready` | Agent ID / registry configuration is present and the standard adapter can surface live registry state. |
+| `simulation` | Byreal/Reclaim/TEE/x402 live credentials are absent; structured simulated receipts are returned. |
+
+This lets the demo stay reliable while keeping the upgrade path to live Mantle
+infrastructure clean.
+
+## Quick Start
+
+### 1. Verify The Baseline
 
 ```powershell
-cd "c:\Users\yhy05\Desktop\黑客松"
+cd "C:\Users\yhy05\Desktop\黑客松"
+python -m pytest services\api\tests
+python -m unittest discover packages\strategy-selector\tests
 python scripts\smoke_test.py
 ```
 
-### 2. API
+### 2. Run The API
 
 ```powershell
 .\scripts\run_api.ps1
 ```
 
-### 3. Web
+Useful endpoints:
+
+```text
+GET  /api/health
+GET  /api/agent/card
+POST /api/analyze
+POST /api/record-signal
+POST /api/settle
+GET  /api/memory
+```
+
+### 3. Run The Web App
 
 ```powershell
 .\scripts\run_web.ps1
 ```
 
-Open `http://localhost:5173` for local development. Click **Analyze**, then
-**Record on Mantle**.
+Open `http://localhost:5173` for local development only. Final submission links
+must use a public URL.
 
-For final submission, deploy the app publicly. The simplest path is a single
-FastAPI service that serves the built React dashboard and exposes API routes
-under `/api/*`.
-
-## API
-
-| Endpoint | Description |
-|----------|-------------|
-| `GET /api/health` | Health check |
-| `GET /api/assets` | BTC, ETH, SOL |
-| `POST /api/analyze` | Factors + strategy + decision report |
-| `POST /api/record-signal` | Mantle proof or explicit demo-mode proof |
-| `GET /api/agent` | Agent identity and reputation status |
-| `POST /api/agent/register` | Register an ERC-8004-inspired agent identity |
-| `GET /api/byreal/status` | Byreal / RealClaw adapter status |
-| `POST /api/settle` | Compute PnL feedback and write reputation when configured |
-| `GET /api/memory` | FinMem-inspired settlement memory summary and recent records |
-| `GET /api/demo/sample` | Sample data preview |
-
-## Mantle contract
+### 4. Build Frontend And Contracts
 
 ```powershell
-cd contracts
-npm install
+cd apps\web
+npm run build
+
+cd ..\..\contracts
 npm run compile
-# Copy contracts/.env.example to contracts/.env and set MANTLE_PRIVATE_KEY, then:
-npm run deploy:sepolia
 ```
 
-Copy `.env.example` to root `.env`, then set the deployed address as
-`SIGNAL_REGISTRY_ADDRESS`.
+## Environment
 
-After deployment, call `POST /api/agent/register`, read the `Registered` event
-for the new `agentId`, then set `AGENT_ID` and `VALIDATOR_ADDRESS`. With those
-configured, `POST /api/record-signal` uses the identity + validation path
-instead of the legacy signal recorder.
+Copy `.env.example` to `.env` and configure only the live integrations you want
+to enable.
 
-Without `SIGNAL_REGISTRY_ADDRESS` and `MANTLE_PRIVATE_KEY`, the app stays in
-demo-proof mode. This keeps the judge flow reliable, but the final judged
-submission must disable mock-only posture and include a real Mantle contract,
-agent identity, validation request, or explorer transaction.
+Core Mantle proof path:
 
-Set `PRIVATE_MEMPOOL_RPC_URL` when using a protected RPC provider. The API will
-prefer that endpoint for transaction broadcasts, while still using dynamic gas
-estimation instead of hardcoded gas values.
+```env
+MANTLE_RPC_URL=https://rpc.sepolia.mantle.xyz
+MANTLE_CHAIN_ID=5003
+SIGNAL_REGISTRY_ADDRESS=
+MANTLE_PRIVATE_KEY=
+AGENT_ID=
+VALIDATOR_ADDRESS=
+```
 
-## Public deployment
+ERC-8004 and Agent Card:
 
-See [docs/deployment.md](docs/deployment.md). Before submission, verify:
+```env
+AGENT_CARD_BASE_URL=https://your-public-api.example.com
+AGENT_URI=https://your-public-api.example.com/api/agent/card
+ERC8004_IDENTITY_REGISTRY_ADDRESS=
+ERC8004_REPUTATION_REGISTRY_ADDRESS=
+ERC8004_VALIDATION_REGISTRY_ADDRESS=
+```
 
-- public app URL works without localhost;
-- `/api/health` reports `status: ok`;
-- `Record on Mantle` returns an explorer transaction or a clearly labeled demo
-  proof if the contract is intentionally not configured yet.
+Optional live adapters:
 
-## Project layout
+```env
+BYREAL_API_BASE=
+BYREAL_API_KEY=
+RECLAIM_APP_ID=
+RECLAIM_APP_SECRET=
+RECLAIM_VERIFIER_ADDRESS=
+PHALA_TEE_ENABLED=false
+PHALA_ENCLAVE_ENDPOINT=
+PHALA_API_KEY=
+BLOCKY402_FACILITATOR_URL=
+X402_WALLET_ADDRESS=
+```
+
+## Agent Card Preview
+
+```powershell
+python scripts\register_agent_card.py
+```
+
+The script prints the canonical Agent Card endpoint and payload. For final
+submission, host that card publicly, set `AGENT_URI`, and register it through
+the official ERC-8004 Identity Registry path or the project fallback registry.
+
+## API Flow
+
+```mermaid
+flowchart LR
+  A["/api/analyze"] --> B["Factor summary"]
+  B --> C["FinPos + QTMRL selection"]
+  C --> D["Byreal quote and route"]
+  D --> E["Decision report + signal hash"]
+  E --> F["ProofBundle"]
+  F --> G["/api/record-signal"]
+  G --> H["Mantle proof path"]
+  H --> I["/api/settle"]
+  I --> J["Memory + ERC-8004 feedback"]
+```
+
+## Repository Layout
 
 ```text
-packages/factor-engine/     # crypto_factors + MVP summary
-packages/strategy-selector/ # regime + strategy selection
-packages/agent-memory/      # FinMem-inspired JSONL memory retrieval
-packages/agent-orchestrator/# QuantAgent-inspired multi-agent context
-services/api/               # FastAPI
-apps/web/                   # React dashboard
-contracts/                  # SignalRegistry.sol
-data/sample/                # BTC, ETH, SOL offline snapshots
+apps/web/                    React dashboard
+services/api/                FastAPI orchestration and trust adapters
+packages/factor-engine/      Factor computation
+packages/strategy-selector/  Strategy, FinPos, QTMRL policy
+packages/agent-memory/       Settlement memory and ATLAS prompt variants
+packages/agent-orchestrator/ Multi-agent context and A2C policy skeleton
+contracts/                   Mantle contracts and Hardhat config
+data/sample/                 Offline BTC/ETH/SOL snapshots
+docs/                        Deployment, proof, and judging notes
+submissions/dorahacks/       Submission materials
 ```
 
-## Docs
+## Current Submission Gap
 
-See [STATUS.md](STATUS.md), [GOALS.md](GOALS.md), [STRUCTURE.md](STRUCTURE.md), and `docs/` for hackathon scope and judging alignment.
+The codebase is ready for a public demo and live integration configuration, but
+the final judged submission should still add:
 
-Submission-focused docs:
-
-- [docs/deployment.md](docs/deployment.md)
-- [docs/api-examples.md](docs/api-examples.md)
-- [docs/architecture-diagram.md](docs/architecture-diagram.md)
-- [docs/proof-model.md](docs/proof-model.md)
-- [docs/submission-story.md](docs/submission-story.md)
-- [docs/paper-source-integration.md](docs/paper-source-integration.md)
-- [docs/launch-checklist.md](docs/launch-checklist.md)
-- [docs/repo-hygiene.md](docs/repo-hygiene.md)
-- [submissions/dorahacks/pitch.md](submissions/dorahacks/pitch.md)
-- [submissions/dorahacks/final-checklist.md](submissions/dorahacks/final-checklist.md)
+- public app URL;
+- deployed Mantle contract or official ERC-8004 registry transaction;
+- registered Agent Card URI and `agentId`;
+- at least one real Mantle explorer transaction;
+- demo video and final DoraHacks submission links.

@@ -18,6 +18,7 @@ sys.path.insert(0, str(ROOT / "packages" / "agent-orchestrator"))
 from agent_memory import AdaptiveOPROStore, AgentMemoryStore  # noqa: E402
 
 from .config import ATLAS_OPRO_STORE_PATH, MEMORY_STORE_PATH
+from .routers import agent as agent_router
 from .routers import analyze as analyze_router
 from .routers import health as health_router
 from .routers import signal as signal_router
@@ -35,6 +36,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(agent_router.router)
 
 _memory_store = AgentMemoryStore(MEMORY_STORE_PATH)
 _opro_store = AdaptiveOPROStore(ATLAS_OPRO_STORE_PATH)
