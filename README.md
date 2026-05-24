@@ -1,3 +1,12 @@
+---
+title: QuantAgent Demo
+emoji: 🔥
+colorFrom: blue
+colorTo: gray
+sdk: docker
+pinned: false
+---
+
 # QuantAgent Alpha Registry
 
 QuantAgent Alpha Registry is an ERC-8004-compatible Mantle trading-agent
