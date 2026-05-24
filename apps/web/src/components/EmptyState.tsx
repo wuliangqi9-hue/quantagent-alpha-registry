@@ -3,12 +3,12 @@ export function EmptyState() {
     <div className="panel empty">
       <div className="empty-grid">
         <div>
-          <h2>Judge demo path</h2>
-          <p>Select an asset, run Analyze, inspect the factor-backed strategy decision, then record the signal proof.</p>
+          <h2>Decision Ready</h2>
+          <p>Choose an asset and run a clean factor-backed analysis with proof, execution, and reputation views prepared.</p>
         </div>
         <div>
-          <h2>Why it matters</h2>
-          <p>QuantAgent makes AI trading decisions inspectable: factors off-chain, proof and accountability on Mantle.</p>
+          <h2>Auditable by Design</h2>
+          <p>Every signal is shaped for inspection: off-chain reasoning, deterministic proof envelopes, and Mantle accountability.</p>
         </div>
       </div>
     </div>

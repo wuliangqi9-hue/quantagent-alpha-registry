@@ -32,11 +32,11 @@ export function HeaderPanel({
   return (
     <header className="header">
       <div className="title">
-        <div className="eyebrow">Mantle Turing Test · Agentic Trading Infrastructure</div>
+        <div className="eyebrow">Mantle Turing Test · Proof-aware trading</div>
         <h1>QuantAgent Alpha Registry</h1>
         <p>
-          A proof-aware trading cockpit: factor research, policy selection, execution routing,
-          and ERC-8004 reputation feedback in one auditable flow.
+          Factor research, route selection, proof bundles, and ERC-8004 reputation feedback
+          presented as one calm, auditable decision workspace.
         </p>
       </div>
       <div className="controls">

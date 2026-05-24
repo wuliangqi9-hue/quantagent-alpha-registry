@@ -36,7 +36,7 @@ export function DecisionSummary({ data, chain, settlement, latestPrice }: Props)
   return (
     <section className="decision-summary span-12" aria-label="Decision summary">
       <div className="decision-lead">
-        <span className="section-kicker">Live decision chain</span>
+        <span className="section-kicker">Decision workspace</span>
         <h2>{data.symbol} · {signal}</h2>
         <p>{selection.explanation}</p>
       </div>
@@ -75,10 +75,10 @@ export function DecisionSummary({ data, chain, settlement, latestPrice }: Props)
         </div>
       </div>
       <div className="decision-pipeline" aria-label="Decision pipeline">
-        <span>Market state</span>
-        <span>Policy decision</span>
-        <span>Execution route</span>
-        <span>Proof bundle</span>
+        <span>Market State</span>
+        <span>Policy Decision</span>
+        <span>Execution Route</span>
+        <span>Proof Bundle</span>
       </div>
     </section>
   );
