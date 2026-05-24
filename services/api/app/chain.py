@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import json
-import time
-from pathlib import Path
 from typing import Any
 
 from .config import (
@@ -363,9 +361,6 @@ def submit_reputation_feedback(
 
 
 def mock_record(signal_hash: str, symbol: str, strategy_id: str, model_version: str, mode: str) -> dict[str, Any]:
-    ts = int(time.time())
-    pseudo = f"{signal_hash}-{ts}"[-16:]
-    tx_hash = f"0x{'0' * 24}{pseudo.replace('0x', '')[:16]}"
     return {
         "recorded": False,
         "mock": True,

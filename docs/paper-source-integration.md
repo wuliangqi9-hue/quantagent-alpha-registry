@@ -75,12 +75,3 @@ left as passive copied source:
   reputation and latest PnL.
 - `apps/web`: dashboard displays memory count, risk profile, AlphaGPT formula,
   reflection, and multi-agent reports.
-
-## Next Implementation Slice
-
-The highest-value next slice is:
-
-1. Replace deterministic multi-agent reports with optional structured LLM calls.
-2. Add a tiny alpha formula evaluator for the generated `alphaFormula`.
-3. Persist memory to a managed volume or database in public deployment.
-4. Add tests for memory scoring and selector guardrail edge cases.

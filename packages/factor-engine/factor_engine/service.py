@@ -57,7 +57,6 @@ def compute_factor_summary(
     if matrix.empty:
         raise ValueError("Factor matrix is empty after processing")
 
-    latest_row = matrix.iloc[-1]
     factors: list[dict[str, Any]] = []
     explanations = {
         "momentum": "Positive momentum supports trend-following; extremes may signal reversal risk.",

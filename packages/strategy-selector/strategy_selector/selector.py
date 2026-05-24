@@ -24,6 +24,24 @@ STRATEGIES = {
         "name": "MACD + Bollinger",
         "description": "Hybrid momentum and band strategy for mixed or bearish regimes.",
     },
+    "reversal_trend": {
+        "name": "Reversal Trend",
+        "description": "Risk-critic fallback that waits for trend reversal confirmation after loss streaks.",
+    },
+    "range_mean_reversion": {
+        "name": "Range Mean Reversion",
+        "description": "Conservative risk-critic fallback for range-bound recovery after adverse settlements.",
+    },
+    "breakout_swing": {
+        "name": "Breakout Swing",
+        "description": "Aggressive continuation strategy used only when memory and reputation permit higher variance.",
+    },
+}
+
+BENCHMARK_FALLBACKS = {
+    "reversal_trend": "macd_bollinger",
+    "range_mean_reversion": "bollinger",
+    "breakout_swing": "supertrend",
 }
 
 
@@ -72,6 +90,13 @@ def _factor_map(factor_summary: dict[str, Any]) -> dict[str, float]:
         if item.get("score") is not None and not item.get("missing"):
             out[item["id"]] = float(item["score"])
     return out
+
+
+def _benchmark_id(strategy_id: str) -> str:
+    """Map derived risk-critic strategies to benchmark-compatible base strategies."""
+    if strategy_id in STRATEGY_BENCHMARKS:
+        return strategy_id
+    return BENCHMARK_FALLBACKS.get(strategy_id, "bollinger")
 
 
 def _classify_regime(factors: dict[str, float], recent_vol: float) -> str:
@@ -197,32 +222,85 @@ def _reputation_impact(agent_reputation: dict[str, Any] | None, risk_profile: Ri
     )
 
 
-def _reflection_from_settlement(last_settlement_pnl: float | None) -> str:
-    """QuantAgent 自我反思入口：把上一笔结算结果转成策略约束。"""
+def _reflection_from_settlement(
+    last_settlement_pnl: float | None,
+    memory_context: dict[str, Any] | None = None,
+) -> str:
+    """QuantAgent + Guardrails 自我反思入口。
+
+    把上一笔结算结果与历史记忆轨迹拼接，生成更深层的策略约束。
+    决策 agent 在写 decision_prompt 时会引用此反思文本。
+    """
     if last_settlement_pnl is None:
         return "No previous settlement data"
 
     pnl = float(last_settlement_pnl)
+    trajectory_line = _build_pnl_trajectory(memory_context)
+
     if pnl < -50:
-        return (
+        core = (
             f"Previous settlement lost {pnl:.2f} bps. "
             "Reflect on whether the last signal overfit momentum, ignored volatility, or carried excessive sizing; "
             "prefer switching or lowering exposure unless current factors strongly disagree."
         )
-    if pnl < 0:
-        return (
+    elif pnl < 0:
+        core = (
             f"Previous settlement lost {pnl:.2f} bps. "
             "Keep the same strategy only if factor alignment improved; otherwise reduce confidence."
         )
-    if pnl > 50:
-        return (
+    elif pnl > 50:
+        core = (
             f"Previous settlement gained {pnl:.2f} bps. "
             "Positive feedback supports continuity, but do not increase risk if volatility or funding is crowded."
         )
-    return (
-        f"Previous settlement was {pnl:.2f} bps. "
-        "Outcome was close to flat; favor current factor evidence over inertia."
-    )
+    else:
+        core = (
+            f"Previous settlement was {pnl:.2f} bps. "
+            "Outcome was close to flat; favor current factor evidence over inertia."
+        )
+
+    if trajectory_line:
+        return f"{core} {trajectory_line}"
+    return core
+
+
+def _build_pnl_trajectory(memory_context: dict[str, Any] | None) -> str:
+    """基于记忆存储构建 PnL 轨迹描述，用于 Guardrails 连续亏损检测。"""
+    if not memory_context:
+        return ""
+
+    retrieved = memory_context.get("retrieved", [])
+    if not retrieved:
+        return ""
+
+    pnl_series = [float(item.get("pnlBps", 0.0)) for item in retrieved]
+    consecutive_losses = 0
+    for pnl_val in reversed(pnl_series):
+        if pnl_val < 0:
+            consecutive_losses += 1
+        else:
+            break
+
+    if consecutive_losses >= 2:
+        return (
+            f"Guardrails alert: {consecutive_losses}-consecutive-loss streak detected in recent memory. "
+            "Strongly recommend switching strategy, reducing confidence to <0.50, "
+            "and guarding against overfitting the last factor snapshot."
+        )
+
+    avg_recent = sum(pnl_series) / len(pnl_series) if pnl_series else 0.0
+    if avg_recent < -25:
+        return (
+            f"Recent memory trajectory shows negative average PnL ({avg_recent:.1f} bps). "
+            "Reflect on systematic bias rather than blaming single-trade variance."
+        )
+    if avg_recent > 25:
+        return (
+            f"Recent memory trajectory is positive (avg {avg_recent:.1f} bps). "
+            "Positive feedback loop supports continuity, but guard against over-confidence."
+        )
+
+    return ""
 
 
 def _default_alpha_formula(factors: dict[str, float], risk_profile: RiskProfileState) -> str:
@@ -478,7 +556,7 @@ def select_strategy(
     )
 
     # QuantAgent：把上一次结算结果变成自我反思约束，影响本次置信度。
-    reflection = _reflection_from_settlement(last_settlement_pnl)
+    reflection = _reflection_from_settlement(last_settlement_pnl, memory_context)
     confidence, drivers, warnings = _apply_reflection_guardrails(
         confidence,
         drivers,
@@ -497,7 +575,21 @@ def select_strategy(
         warnings = [*warnings, *critic_warnings][:8]
         drivers = [*drivers, "QuantAgent multi-agent context synthesized indicator, flow, memory, and reputation reports."][:8]
 
-    bench = STRATEGY_BENCHMARKS[strategy_id]
+        # P1-5: RiskCritic 置信度自动调节
+        # 当多智能体上下文包含关键风险告警时，自动降低 confidence
+        for warn in critic_warnings:
+            if "volatility is high" in warn or "cap confidence" in warn:
+                confidence = max(0.35, confidence - 0.08)
+                drivers = [*drivers, "RiskCritic: volatility override applied, confidence capped."][:8]
+            if "funding is crowded" in warn:
+                confidence = max(0.35, confidence - 0.05)
+                drivers = [*drivers, "RiskCritic: funding crowd override applied, confidence reduced."][:8]
+            if "consecutive-loss streak" in warn or "Reflection critic" in warn:
+                confidence = max(0.30, confidence - 0.12)
+                strategy_id = "reversal_trend" if strategy_id in ("macd_bollinger", "breakout_swing") else "range_mean_reversion"
+                drivers = [*drivers, "RiskCritic: consecutive loss override → strategy switched & confidence lowered."][:8]
+
+    bench = STRATEGY_BENCHMARKS[_benchmark_id(strategy_id)]
     regime_key = f"{regime}_sharpe" if f"{regime}_sharpe" in bench else "range_sharpe"
     sharpe = bench.get(regime_key, bench.get("range_sharpe", 0.0))
 
@@ -533,7 +625,7 @@ def select_strategy(
     # 策略 ID 仍以确定性风控结果为主，避免 LLM 返回未知策略导致 benchmark 或执行层崩溃。
     if llm_decision.strategyId in STRATEGIES and risk_profile != "conservative":
         strategy_id = llm_decision.strategyId
-        bench = STRATEGY_BENCHMARKS[strategy_id]
+        bench = STRATEGY_BENCHMARKS[_benchmark_id(strategy_id)]
         meta = STRATEGIES[strategy_id]
     else:
         meta = STRATEGIES[strategy_id]

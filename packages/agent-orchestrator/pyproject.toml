@@ -1,0 +1,9 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "agent-orchestrator"
+version = "1.0.0"
+description = "QuantAgent-inspired multi-agent orchestration graph"
+requires-python = ">=3.12"

@@ -25,6 +25,19 @@ decision trail:
 - a registered agent identity can request validation and receive reputation feedback;
 - the UI keeps risk caveats and proof mode visible.
 
+## Academic Foundations
+
+This project fuses production code from four academic pillars. Each source
+paper drives specific runtime modules, not just a citations list.
+
+| Paper | Code Location | What It Drives |
+|-------|--------------|----------------|
+| **FinMem** (2024) – Episodic Memory for Financial RL | `packages/agent-memory/` | JSONL memory store with recency, importance, similarity, and PnL-impact retrieval; `/api/settle` → `MemoryRecord.from_analysis()` → `store.append()` → next `/api/analyze` consumes retrieved memories |
+| **QuantAgent** (2025) – Self-Improving LLM Agent | `packages/strategy-selector/selector.py` | Outer-loop PnL self-reflection: losing >50 bps → deduct confidence 0.12 + add warning; winning >50 bps → reward 0.02; reflection text injected into next System Prompt |
+| **QuantAgent** (2025) – Multi-Agent Collaboration | `packages/agent-orchestrator/` | Five deterministic sub-agents (Indicator, Flow, Memory, Reputation, Risk Critic); reports fed into selector via `multi_agent_context` |
+| **AlphaGPT** (2023) – LLM-Generated Alpha Factors | `packages/strategy-selector/selector.py` | Dynamic-rank alpha formula with regime-aware weights (e.g., `decay_linear(momentum,6)`); conservative mode adjusts volatility penalty from 0.30 → 0.45 |
+| **EIP-8004** – Trustless Agent Identity | `contracts/contracts/SignalRegistry.sol` | ERC-8004-inspired identity (agent NFT), validation (proof request), and reputation (settlement feedback) on Mantle; zkML proofHash anchor reserved for future verifiability |
+
 ## Architecture
 
 ```mermaid

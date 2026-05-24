@@ -166,15 +166,34 @@ class AgentMemoryStore:
         current_factors: dict[str, float],
         now: float,
     ) -> dict[str, float]:
+        """FinMem 增强评分引擎。
+
+        四维度记忆评分：
+        - recency：指数衰减窗口（半衰期 72h）
+        - importance：PnL 驱动的自适应重要性（组合绝对 PnL + 方向正确性）
+        - similarity：余弦相似度（降至 0.65 以提升语义区分度）
+        - pnlImpact：收益冲击（非线性 soft-sign 代替线性裁剪）
+        """
         age_hours = max(0.0, (now - record.timestamp) / 3600)
-        recency = math.exp(-age_hours / 72)
-        importance = min(1.0, abs(record.pnl_bps) / 250)
-        pnl_impact = max(-1.0, min(1.0, record.pnl_bps / 200))
+        # 指数衰减，半衰期 72h
+        recency = math.exp(-age_hours * math.log(2) / 72)
+
+        # 自适应重要性：绝对 PnL + 方向正确性奖励
+        abs_pnl_norm = min(1.0, abs(record.pnl_bps) / 200)
+        direction_correct = 1.0 if record.pnl_bps > 0 else 0.0
+        importance = 0.7 * abs_pnl_norm + 0.3 * direction_correct
+
+        # 非线性收益冲击（soft-sign 替代线性裁剪）
+        pnl_impact = math.tanh(record.pnl_bps / 150)
+
+        # 余弦相似度：降至 0.65 放大语义差异
         similarity = self._cosine_similarity(record.factor_snapshot, current_factors)
+        similarity_weighted = similarity * max(0.65, similarity)
+
         return {
             "recency": recency,
             "importance": importance,
-            "similarity": similarity,
+            "similarity": similarity_weighted,
             "pnlImpact": pnl_impact,
         }
 

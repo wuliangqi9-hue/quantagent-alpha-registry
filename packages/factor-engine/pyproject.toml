@@ -1,0 +1,9 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "factor-engine"
+version = "1.0.0"
+description = "Crypto factor calculation engine (market, derivatives, on-chain)"
+requires-python = ">=3.12"
