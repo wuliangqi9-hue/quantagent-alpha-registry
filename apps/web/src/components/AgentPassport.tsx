@@ -22,6 +22,7 @@ export function AgentPassport({ data, chain, settlement }: Props) {
           : 0,
     ),
   );
+  const agent = data.agent ?? {};
 
   return (
     <section className="panel span-12 agent-passport">
@@ -33,90 +34,90 @@ export function AgentPassport({ data, chain, settlement }: Props) {
           <span>{agentScore}</span>
         </div>
         <div>
+          <span className="section-kicker">ERC-8004 compatible</span>
           <h2>Agent Passport</h2>
           <p>
-            ERC-8004-compatible identity, validation request, and reputation feedback loop for the QuantAgent.
+            Identity, validation, and reputation stitched into a judge-readable agent profile.
           </p>
         </div>
       </div>
-      <div className="passport-grid">
-        <div className="passport-item">
-          <span>Identity</span>
-          <strong>
-            {data.agent.identityRegistered
-              ? `Agent #${data.agent.agentId}`
-              : data.agent.agentId
-                ? `Agent #${data.agent.agentId} pending`
-                : "Not registered"}
-          </strong>
+      <div className="passport-sections">
+        <div className="passport-group">
+          <h3>Identity</h3>
+          <dl>
+            <div>
+              <dt>Agent</dt>
+              <dd>
+                {agent.identityRegistered
+                  ? `#${agent.agentId}`
+                  : agent.agentId
+                    ? `#${agent.agentId} pending`
+                    : "Not registered"}
+              </dd>
+            </div>
+            <div>
+              <dt>Registry</dt>
+              <dd>{identity?.agentRegistry || "eip155 registry pending"}</dd>
+            </div>
+            <div>
+              <dt>Agent URI</dt>
+              <dd>{identity?.agentURI || agent.agentURI || "Pending card URI"}</dd>
+            </div>
+          </dl>
         </div>
-        <div className="passport-item">
-          <span>Agent registry</span>
-          <strong>{identity?.agentRegistry || "eip155 registry pending"}</strong>
+        <div className="passport-group">
+          <h3>Trust</h3>
+          <dl>
+            <div>
+              <dt>Mode</dt>
+              <dd>{identity?.mode || agent.proofMode || data.proofMode || "fallback-demo"}</dd>
+            </div>
+            <div>
+              <dt>Validation</dt>
+              <dd>
+                {chain?.registryLayer === "identity+validation"
+                  ? "Signal proof requested"
+                  : validation?.status || "Awaiting signal"}
+              </dd>
+            </div>
+            <div>
+              <dt>Reputation</dt>
+              <dd>
+                {agent.reputation
+                  ? `${agent.reputation.count} feedback · ${agent.reputation.score.toFixed(4)}`
+                  : reputation?.count
+                    ? `${reputation.count} feedback · ${reputation.score ?? "pending"}`
+                  : settlement
+                    ? `${settlement.score / 10000} simulated`
+                    : "No feedback yet"}
+              </dd>
+            </div>
+          </dl>
         </div>
-        <div className="passport-item">
-          <span>ERC-8004 mode</span>
-          <strong>{identity?.mode || data.agent.proofMode || "fallback-demo"}</strong>
-        </div>
-        <div className="passport-item">
-          <span>Agent URI</span>
-          <strong>{identity?.agentURI || data.agent.agentURI || "Pending card URI"}</strong>
-        </div>
-        <div className="passport-item">
-          <span>Validation layer</span>
-          <strong>
-            {chain?.registryLayer === "identity+validation"
-              ? "Signal proof requested"
-              : validation?.status || "Awaiting signal"}
-          </strong>
-        </div>
-        <div className="passport-item">
-          <span>Validation registry</span>
-          <strong>{validation?.validationRegistry || "Not configured"}</strong>
-        </div>
-        <div className="passport-item">
-          <span>Reputation</span>
-          <strong>
-            {data.agent.reputation
-              ? `${data.agent.reputation.count} feedback · ${data.agent.reputation.score.toFixed(4)}`
-              : reputation?.count
-                ? `${reputation.count} feedback · ${reputation.score ?? "pending"}`
-              : settlement
-                ? `${settlement.score / 10000} simulated`
-                : "No feedback yet"}
-          </strong>
-        </div>
-        <div className="passport-item">
-          <span>Byreal / RealClaw</span>
-          <strong>{data.byreal.mode}</strong>
-        </div>
-        <div className="passport-item">
-          <span>Execution intent</span>
-          <strong>{data.executionIntent.action}</strong>
-        </div>
-        <div className="passport-item">
-          <span>MEV posture</span>
-          <strong>
-            {chain?.privateMempoolConfigured || data.agent.privateMempoolConfigured
-              ? "Private RPC ready"
-              : "Public RPC / configure private"}
-          </strong>
-        </div>
-        <div className="passport-item">
-          <span>Memory</span>
-          <strong>
-            {data.memory?.summary
-              ? `${data.memory.summary.count} records · ${data.memory.summary.avgPnlBps} bps avg`
-              : "No memory yet"}
-          </strong>
-        </div>
-        <div className="passport-item">
-          <span>Risk profile</span>
-          <strong>{data.selection.riskProfileState || "neutral"}</strong>
-        </div>
-        <div className="passport-item">
-          <span>Alpha formula</span>
-          <strong>{data.selection.alphaFormula || "Pending"}</strong>
+        <div className="passport-group">
+          <h3>Operations</h3>
+          <dl>
+            <div>
+              <dt>Byreal</dt>
+              <dd>{data.byreal?.mode || "simulation"}</dd>
+            </div>
+            <div>
+              <dt>MEV</dt>
+              <dd>
+                {chain?.privateMempoolConfigured || agent.privateMempoolConfigured
+                  ? "Private RPC ready"
+                  : "Public RPC / configure private"}
+              </dd>
+            </div>
+            <div>
+              <dt>Memory</dt>
+              <dd>
+                {data.memory?.summary
+                  ? `${data.memory.summary.count} records · ${data.memory.summary.avgPnlBps} bps avg`
+                  : "No memory yet"}
+              </dd>
+            </div>
+          </dl>
         </div>
       </div>
     </section>

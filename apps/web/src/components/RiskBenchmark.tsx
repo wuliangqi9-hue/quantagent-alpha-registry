@@ -21,12 +21,13 @@ export function RiskBenchmark({ selection, settlement }: Props) {
 
   return (
     <section className="panel span-3">
+      <span className="section-kicker">Risk desk</span>
       <h2>Risk</h2>
-      <ul className="warnings">
+      <div className="warning-stack">
         {selection.riskWarnings.map((w) => (
-          <li key={w}>{w}</li>
+          <div className="warning-item" key={w}>{w}</div>
         ))}
-      </ul>
+      </div>
       <h2>Benchmark evidence</h2>
       <div className="metric">
         <span>Regime Sharpe</span>
@@ -40,9 +41,7 @@ export function RiskBenchmark({ selection, settlement }: Props) {
         <span>Max drawdown</span>
         <strong>{selection.benchmarkSummary.maxDrawdownPct}%</strong>
       </div>
-      <p style={{ color: "var(--muted)", fontSize: "0.8rem" }}>
-        {selection.benchmarkSummary.note}
-      </p>
+      <p className="note">{selection.benchmarkSummary.note}</p>
 
       {/* ── FinPos Multi-Timescale Rewards ── */}
       {finpos && (
@@ -60,17 +59,11 @@ export function RiskBenchmark({ selection, settlement }: Props) {
           </div>
 
           {/* Short Window */}
-          <div style={{
-            marginTop: 8,
-            padding: "6px 10px",
-            background: "var(--surface2, #1a1a2e)",
-            borderRadius: 6,
-            fontSize: "0.78rem",
-          }}>
-            <div style={{ fontWeight: 600, marginBottom: 4, color: "var(--fg, #e0e0e0)" }}>
+          <div className="reward-window">
+            <div>
               Short Window ({finpos.shortWindow.windowSize}d)
             </div>
-            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+            <div>
               <span>PnL: <strong>{formatBps(finpos.shortWindow.pnlBps)}</strong></span>
               <span>Sharpe: <strong>{finpos.shortWindow.sharpe.toFixed(2)}</strong></span>
               <span>Win: <strong>{(finpos.shortWindow.winRate * 100).toFixed(0)}%</strong></span>
@@ -78,17 +71,11 @@ export function RiskBenchmark({ selection, settlement }: Props) {
           </div>
 
           {/* Medium Window */}
-          <div style={{
-            marginTop: 6,
-            padding: "6px 10px",
-            background: "var(--surface2, #1a1a2e)",
-            borderRadius: 6,
-            fontSize: "0.78rem",
-          }}>
-            <div style={{ fontWeight: 600, marginBottom: 4, color: "var(--fg, #e0e0e0)" }}>
+          <div className="reward-window">
+            <div>
               Medium Window ({finpos.mediumWindow.windowSize}d)
             </div>
-            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+            <div>
               <span>PnL: <strong>{formatBps(finpos.mediumWindow.pnlBps)}</strong></span>
               <span>Sharpe: <strong>{finpos.mediumWindow.sharpe.toFixed(2)}</strong></span>
               <span>Win: <strong>{(finpos.mediumWindow.winRate * 100).toFixed(0)}%</strong></span>
@@ -104,20 +91,11 @@ export function RiskBenchmark({ selection, settlement }: Props) {
           </div>
 
           {/* Composite Score */}
-          <div style={{
-            marginTop: 8,
-            padding: "8px 12px",
-            background: "var(--surface1, #16213e)",
-            borderRadius: 6,
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}>
-            <span style={{ fontWeight: 600, color: "var(--fg, #e0e0e0)" }}>
+          <div className="score-tile">
+            <span>
               FinPos Composite Score
             </span>
             <strong style={{
-              fontSize: "1.2rem",
               color: scoreColor(finpos.compositeScore),
             }}>
               {finpos.compositeScore.toFixed(3)}
@@ -127,7 +105,7 @@ export function RiskBenchmark({ selection, settlement }: Props) {
       )}
 
       <h2>Reflection</h2>
-      <p style={{ color: "var(--muted)", fontSize: "0.82rem" }}>
+      <p className="note">
         {selection.reflection || "No previous settlement data"}
       </p>
     </section>

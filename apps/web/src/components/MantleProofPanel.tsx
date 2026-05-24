@@ -144,9 +144,28 @@ export function MantleProofPanel({ data, chain, settlement, settlementChain }: P
 
   return (
     <section className="panel span-4">
+      <span className="section-kicker">Audit trail</span>
       <h2>Mantle proof</h2>
       <div className={`proof-state ${chain?.recorded ? "recorded" : "demo"}`}>
         {proofLabel(chain, Boolean(data.contractAddress))}
+      </div>
+      <div className="proof-timeline">
+        <div className={`proof-step ${data.signalHash ? "recorded" : "demo"}`}>
+          <span>Signal</span>
+          <strong>{shortHash(data.signalHash)}</strong>
+        </div>
+        <div className={`proof-step ${data.dataProof?.verified ? "recorded" : "demo"}`}>
+          <span>zkTLS</span>
+          <strong>{data.dataProof?.provider || "deterministic"}</strong>
+        </div>
+        <div className={`proof-step ${settlement?.teeAttestation?.verified ? "recorded" : "demo"}`}>
+          <span>TEE</span>
+          <strong>{settlement?.teeAttestation?.enclavePlatform || "pending"}</strong>
+        </div>
+        <div className={`proof-step ${settlementChain?.recorded ? "recorded" : "demo"}`}>
+          <span>Reputation</span>
+          <strong>{settlementChain?.recorded ? "written" : "simulated"}</strong>
+        </div>
       </div>
       <div className="metric">
         <span>Signal hash</span>
@@ -154,15 +173,15 @@ export function MantleProofPanel({ data, chain, settlement, settlementChain }: P
       <div className="hash">{data.signalHash}</div>
       <div className="metric" style={{ marginTop: 12 }}>
         <span>Model version</span>
-        <strong style={{ fontSize: "0.75rem" }}>{data.modelVersion}</strong>
+        <strong style={{ fontSize: "0.75rem" }}>{data.modelVersion || "unknown"}</strong>
       </div>
       <div className="metric">
         <span>Report schema</span>
-        <strong style={{ fontSize: "0.75rem" }}>{data.reportSchema}</strong>
+        <strong style={{ fontSize: "0.75rem" }}>{data.reportSchema || "legacy-report"}</strong>
       </div>
       <div className="metric">
         <span>API proof mode</span>
-        <strong style={{ fontSize: "0.75rem" }}>{data.proofMode}</strong>
+        <strong style={{ fontSize: "0.75rem" }}>{data.proofMode || "demo-proof"}</strong>
       </div>
       {(settlement?.proofBundleHash || data.proofBundle?.proofBundleHash) && (
         <>

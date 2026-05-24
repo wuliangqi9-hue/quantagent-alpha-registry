@@ -1,5 +1,6 @@
 import {
   AgentPassport,
+  DecisionSummary,
   EmptyState,
   ExecutionPanel,
   FactorCharts,
@@ -60,13 +61,27 @@ export default function App() {
 
       {data && (
         <div className="grid">
-          <AgentPassport data={data} chain={chain} settlement={settlement} />
-
-          <FactorCharts factors={data.factorSummary.factors} />
+          <DecisionSummary
+            data={data}
+            chain={chain}
+            settlement={settlement}
+            latestPrice={latestPrice}
+          />
 
           <RegimeStrategy selection={data.selection} />
 
           <ExecutionPanel data={data} />
+
+          <MantleProofPanel
+            data={data}
+            chain={chain}
+            settlement={settlement}
+            settlementChain={settlementChain}
+          />
+
+          <AgentPassport data={data} chain={chain} settlement={settlement} />
+
+          <FactorCharts factors={data.factorSummary.factors} />
 
           <RiskBenchmark selection={data.selection} settlement={settlement} />
 
@@ -75,13 +90,6 @@ export default function App() {
           <MultiAgentPanel
             multiAgent={data.multiAgent}
             selection={data.selection}
-          />
-
-          <MantleProofPanel
-            data={data}
-            chain={chain}
-            settlement={settlement}
-            settlementChain={settlementChain}
           />
 
           <FootnotePanel />

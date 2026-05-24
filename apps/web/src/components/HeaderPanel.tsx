@@ -32,11 +32,11 @@ export function HeaderPanel({
   return (
     <header className="header">
       <div className="title">
-        <div className="eyebrow">AI Trading & Strategy · AI Alpha & Data · Mantle Proof Layer</div>
+        <div className="eyebrow">Mantle Turing Test · Agentic Trading Infrastructure</div>
         <h1>QuantAgent Alpha Registry</h1>
         <p>
-          Explainable crypto factor research, strategy selection, and Mantle decision proofs.
-          Transparent research-to-execution workflow, not a profit guarantee.
+          A proof-aware trading cockpit: factor research, policy selection, execution routing,
+          and ERC-8004 reputation feedback in one auditable flow.
         </p>
       </div>
       <div className="controls">

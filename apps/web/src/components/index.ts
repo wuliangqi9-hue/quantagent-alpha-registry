@@ -1,4 +1,5 @@
 export { HeaderPanel } from "./HeaderPanel";
+export { DecisionSummary } from "./DecisionSummary";
 export { EmptyState } from "./EmptyState";
 export { StatusBar } from "./StatusBar";
 export { AgentPassport } from "./AgentPassport";
