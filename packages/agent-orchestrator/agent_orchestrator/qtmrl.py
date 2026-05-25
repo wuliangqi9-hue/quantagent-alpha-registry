@@ -105,7 +105,7 @@ def _state_vector(factor_summary: dict[str, Any]) -> dict[str, float]:
     factors = {
         item["id"]: float(item["score"])
         for item in factor_summary.get("factors", [])
-        if item.get("score") is not None and not item.get("missing")
+        if item.get("id") and item.get("score") is not None and not item.get("missing")
     }
     return {
         "momentum": factors.get("momentum", 0.0),

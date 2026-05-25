@@ -45,10 +45,11 @@ uvicorn services.api.app.main:app --host 0.0.0.0 --port $PORT
 Required only for real Mantle recording:
 
 ```text
-MANTLE_RPC_URL=https://rpc.sepolia.mantle.xyz
-MANTLE_CHAIN_ID=5003
-MANTLE_EXPLORER_BASE=https://explorer.sepolia.mantle.xyz
+MANTLE_RPC_URL=https://rpc.mantle.xyz
+MANTLE_CHAIN_ID=5000
+MANTLE_EXPLORER_BASE=https://explorer.mantle.xyz
 MANTLE_PRIVATE_KEY=<funded private key>
+MANTLE_ENABLE_ONCHAIN_WRITES=true
 SIGNAL_REGISTRY_ADDRESS=<deployed SignalRegistry address>
 AGENT_ID=<Registered event agentId>
 VALIDATOR_ADDRESS=<validator wallet or service address>
@@ -59,6 +60,10 @@ When these are missing, the app uses demo-proof mode. Demo-proof mode is useful
 for development and backup demos, but the final submission should include at
 least one real Mantle explorer link if possible.
 
+Keep `MANTLE_ENABLE_ONCHAIN_WRITES=false` on public preview deployments until
+you are ready to broadcast real transactions. This protects the funded wallet
+from public API calls.
+
 Optional but recommended:
 
 ```text
@@ -66,7 +71,11 @@ PRIVATE_MEMPOOL_RPC_URL=<protected Mantle RPC endpoint>
 BYREAL_API_BASE=<Byreal or RealClaw endpoint>
 BYREAL_API_KEY=<adapter credential>
 BYREAL_SIMULATION_MODE=false
+BYREAL_PERPS_LIVE_ENABLED=false
 ```
+
+Set `BYREAL_PERPS_LIVE_ENABLED=true` only on a protected backend after the CLI
+is installed and the account is intentionally funded for live perps execution.
 
 `PRIVATE_MEMPOOL_RPC_URL` is preferred over `MANTLE_RPC_URL` for transaction
 broadcasts when set. The API estimates gas dynamically from the current block;

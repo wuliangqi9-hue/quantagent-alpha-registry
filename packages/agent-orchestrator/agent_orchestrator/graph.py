@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from .llm_client import LLMUnavailable, StructuredLLMClient, config_required_report
 from .qtmrl import A2CPolicyEngine
 
 
@@ -42,7 +43,7 @@ def _factor_map(factor_summary: dict[str, Any]) -> dict[str, float]:
     return {
         item["id"]: float(item["score"])
         for item in factor_summary.get("factors", [])
-        if item.get("score") is not None and not item.get("missing")
+        if item.get("id") and item.get("score") is not None and not item.get("missing")
     }
 
 
@@ -60,11 +61,7 @@ def _bias_from_value(value: float, positive: str, negative: str) -> str:
 
 
 class IndicatorAgent:
-    """技术指标智能体 — 解析动量、趋势、波动率因子并生成人类可读报告。
-
-    参照 indicator_agent.py 的 LLM-tool-calling 模式，但用确定性规则替代 LLM 调用，
-    保证 hackathon 离线 demo 稳定运行。
-    """
+    """技术指标智能体 — 使用 Structured Outputs 生成稳定报告。"""
 
     SLOTS = ("_state",)
     VERSION = "indicator-agent-1.0.0"
@@ -72,19 +69,19 @@ class IndicatorAgent:
     def __init__(self) -> None:
         self._state: AgentState | None = None
 
-    def analyze(self, state: AgentState) -> str:
+    def analyze(self, state: AgentState, llm: StructuredLLMClient) -> str:
         self._state = state
         factors = _factor_map(state.factor_summary)
-        momentum = factors.get("momentum", 0.0)
-        trend = factors.get("trend", 0.0)
-        volatility = abs(factors.get("volatility", 0.0))
-        sym = state.symbol
-        return (
-            f"Indicator agent [{self.VERSION}]: {sym} momentum is "
-            f"{_bias_from_value(momentum, 'bullish', 'bearish')}; "
-            f"trend is {_bias_from_value(trend, 'supportive', 'weak')}; "
-            f"volatility score is {volatility:.3f}."
-        )
+        try:
+            return llm.report(
+                role=self.VERSION,
+                symbol=state.symbol,
+                factor_summary=state.factor_summary,
+                memory_context=state.memory_context,
+                agent_reputation=state.agent_reputation,
+            ).report
+        except LLMUnavailable:
+            return config_required_report(self.VERSION, state.symbol, factors).report
 
 
 class FlowAgent:
@@ -96,17 +93,18 @@ class FlowAgent:
 
     VERSION = "flow-agent-1.0.0"
 
-    def analyze(self, state: AgentState) -> str:
+    def analyze(self, state: AgentState, llm: StructuredLLMClient) -> str:
         factors = _factor_map(state.factor_summary)
-        funding = factors.get("funding", 0.0)
-        open_interest = factors.get("open_interest", 0.0)
-        crowding = (
-            "elevated" if abs(funding) > 1.0 or open_interest > 1.0 else "contained"
-        )
-        return (
-            f"Flow agent [{self.VERSION}]: funding score {funding:.3f} and "
-            f"open-interest score {open_interest:.3f}; crowding risk is {crowding}."
-        )
+        try:
+            return llm.report(
+                role=self.VERSION,
+                symbol=state.symbol,
+                factor_summary=state.factor_summary,
+                memory_context=state.memory_context,
+                agent_reputation=state.agent_reputation,
+            ).report
+        except LLMUnavailable:
+            return config_required_report(self.VERSION, state.symbol, factors).report
 
 
 class MemoryAgent:
@@ -118,13 +116,18 @@ class MemoryAgent:
 
     VERSION = "memory-agent-1.0.0"
 
-    def analyze(self, state: AgentState) -> str:
-        summary = (state.memory_context or {}).get("summary", {})
-        return (
-            f"Memory agent [{self.VERSION}]: {summary.get('count', 0)} stored "
-            f"settlements, average PnL {summary.get('avgPnlBps', 0.0)} bps, "
-            f"latest PnL {summary.get('latestPnlBps')} bps."
-        )
+    def analyze(self, state: AgentState, llm: StructuredLLMClient) -> str:
+        factors = _factor_map(state.factor_summary)
+        try:
+            return llm.report(
+                role=self.VERSION,
+                symbol=state.symbol,
+                factor_summary=state.factor_summary,
+                memory_context=state.memory_context,
+                agent_reputation=state.agent_reputation,
+            ).report
+        except LLMUnavailable:
+            return config_required_report(self.VERSION, state.symbol, factors).report
 
 
 class ReputationAgent:
@@ -150,14 +153,18 @@ class ReputationAgent:
             return None
         return score
 
-    def analyze(self, state: AgentState) -> str:
-        score = self._extract_score(state.agent_reputation)
-        if score is not None:
-            return f"Reputation agent [{self.VERSION}]: ERC-8004 score {score}/10000."
-        return (
-            f"Reputation agent [{self.VERSION}]: no on-chain score available; "
-            "use neutral policy."
-        )
+    def analyze(self, state: AgentState, llm: StructuredLLMClient) -> str:
+        factors = _factor_map(state.factor_summary)
+        try:
+            return llm.report(
+                role=self.VERSION,
+                symbol=state.symbol,
+                factor_summary=state.factor_summary,
+                memory_context=state.memory_context,
+                agent_reputation=state.agent_reputation,
+            ).report
+        except LLMUnavailable:
+            return config_required_report(self.VERSION, state.symbol, factors).report
 
 
 class RiskCritic:
@@ -169,8 +176,20 @@ class RiskCritic:
 
     VERSION = "risk-critic-1.0.0"
 
-    def analyze(self, state: AgentState) -> list[str]:
+    def analyze(self, state: AgentState, llm: StructuredLLMClient) -> list[str]:
         factors = _factor_map(state.factor_summary)
+        try:
+            report = llm.report(
+                role=self.VERSION,
+                symbol=state.symbol,
+                factor_summary=state.factor_summary,
+                memory_context=state.memory_context,
+                agent_reputation=state.agent_reputation,
+            )
+            if report.risk_flags:
+                return report.risk_flags
+        except LLMUnavailable:
+            pass
         volatility = abs(factors.get("volatility", 0.0))
         funding = factors.get("funding", 0.0)
         summary = (state.memory_context or {}).get("summary", {})
@@ -222,6 +241,7 @@ class AgentOrchestrator:
         self.reputation = ReputationAgent()
         self.critic = RiskCritic()
         self.a2c = A2CPolicyEngine()
+        self.llm = StructuredLLMClient()
 
     def run(
         self,
@@ -240,16 +260,16 @@ class AgentOrchestrator:
             factor_snapshot={
                 item["id"]: float(item["score"])
                 for item in factor_summary.get("factors", [])
-                if item.get("score") is not None and not item.get("missing")
+                if item.get("id") and item.get("score") is not None and not item.get("missing")
             },
         )
 
         # 依次调用各 Agent
-        state.indicator_report = self.indicator.analyze(state)
-        state.flow_report = self.flow.analyze(state)
-        state.memory_report = self.memory.analyze(state)
-        state.reputation_report = self.reputation.analyze(state)
-        state.risk_warnings = self.critic.analyze(state)
+        state.indicator_report = self.indicator.analyze(state, self.llm)
+        state.flow_report = self.flow.analyze(state, self.llm)
+        state.memory_report = self.memory.analyze(state, self.llm)
+        state.reputation_report = self.reputation.analyze(state, self.llm)
+        state.risk_warnings = self.critic.analyze(state, self.llm)
         a2c_decision = self.a2c.evaluate(
             factor_summary=factor_summary,
             memory_context=memory_context,
@@ -309,6 +329,11 @@ class AgentOrchestrator:
             "riskCriticWarnings": state.risk_warnings,
             "decisionInputs": state.decision_inputs,
             "qtmrlA2C": a2c_dict,
+            "llm": {
+                "configured": self.llm.configured(),
+                "model": self.llm.model,
+                "mode": "structured-output" if self.llm.configured() else "config-required",
+            },
             # P2-3: AlphaQuanter 主动探索提示
             "explorationHints": exploration_hints,
             # P1-6: 完整因子引擎快照 — 各下游 Agent 可直接引用

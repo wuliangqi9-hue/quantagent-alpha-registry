@@ -1,11 +1,13 @@
 import {
   AgentPassport,
+  AgentTerminal,
   DecisionSummary,
   EmptyState,
   ExecutionPanel,
   FactorCharts,
   FootnotePanel,
   HeaderPanel,
+  JudgingEvidence,
   MantleProofPanel,
   MultiAgentPanel,
   PriceChart,
@@ -15,8 +17,11 @@ import {
   StatusBar,
 } from "./components";
 import { useAnalysis } from "./hooks/useAnalysis";
+import { useWallet } from "./hooks/useWallet";
+import { Toaster } from "sonner";
 
 export default function App() {
+  const wallet = useWallet();
   const {
     symbol,
     setSymbol,
@@ -33,6 +38,9 @@ export default function App() {
     analyze,
     recordSignal,
     settleSignal,
+    terminalMessages,
+    isAnalyzing,
+    lastOpro,
   } = useAnalysis();
 
   const prices = data?.selection.benchmarkChart.prices ?? [];
@@ -40,6 +48,19 @@ export default function App() {
 
   return (
     <div className="app">
+      <Toaster
+        position="top-right"
+        richColors
+        closeButton
+        toastOptions={{
+          duration: 4200,
+          style: {
+            background: "rgba(9, 13, 24, 0.96)",
+            border: "1px solid rgba(132, 247, 255, 0.18)",
+            color: "#f5f7fb",
+          },
+        }}
+      />
       <HeaderPanel
         symbol={symbol}
         mode={mode}
@@ -52,6 +73,9 @@ export default function App() {
         onAnalyze={analyze}
         onRecord={recordSignal}
         onSettle={settleSignal}
+        wallet={wallet}
+        onConnectWallet={wallet.connect}
+        onSwitchChain={wallet.switchToMantle}
       />
 
       {data && <StatusBar data={data} chain={chain} latestPrice={latestPrice} />}
@@ -71,6 +95,12 @@ export default function App() {
             latestPrice={latestPrice}
           />
 
+          <JudgingEvidence
+            data={data}
+            chain={chain}
+            settlement={settlement}
+          />
+
           <RegimeStrategy selection={data.selection} />
 
           <ExecutionPanel data={data} />
@@ -80,20 +110,29 @@ export default function App() {
             chain={chain}
             settlement={settlement}
             settlementChain={settlementChain}
+            walletConnected={wallet.connected}
+            signMessage={wallet.signMessage}
           />
 
           <AgentPassport data={data} chain={chain} settlement={settlement} />
+
+          <AgentTerminal
+            messages={terminalMessages}
+            isActive={isAnalyzing}
+          />
+
+          <MultiAgentPanel
+            multiAgent={data.multiAgent}
+            selection={data.selection}
+            isAnalyzing={isAnalyzing || loading}
+            oproAdaptation={lastOpro}
+          />
 
           <FactorCharts factors={data.factorSummary.factors} />
 
           <RiskBenchmark selection={data.selection} settlement={settlement} />
 
           <PriceChart chart={data.selection.benchmarkChart} />
-
-          <MultiAgentPanel
-            multiAgent={data.multiAgent}
-            selection={data.selection}
-          />
 
           <FootnotePanel />
         </div>

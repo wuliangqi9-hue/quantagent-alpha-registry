@@ -12,13 +12,14 @@ AGENT_ORCHESTRATOR_DIR = ROOT / "packages" / "agent-orchestrator"
 MEMORY_STORE_PATH = Path(os.getenv("MEMORY_STORE_PATH", str(ROOT / "data" / "agent_memory.jsonl")))
 ATLAS_OPRO_STORE_PATH = Path(os.getenv("ATLAS_OPRO_STORE_PATH", str(ROOT / "data" / "atlas_opro.jsonl")))
 
-MANTLE_RPC_URL = os.getenv("MANTLE_RPC_URL", "https://rpc.sepolia.mantle.xyz")
+MANTLE_RPC_URL = os.getenv("MANTLE_RPC_URL", "https://rpc.mantle.xyz")
 PRIVATE_MEMPOOL_RPC_URL = os.getenv(
     "PRIVATE_MEMPOOL_RPC_URL",
     os.getenv("MANTLE_PRIVATE_MEMPOOL_RPC_URL", ""),
 )
 EFFECTIVE_MANTLE_RPC_URL = PRIVATE_MEMPOOL_RPC_URL or MANTLE_RPC_URL
-MANTLE_CHAIN_ID = int(os.getenv("MANTLE_CHAIN_ID", "5003"))
+MANTLE_CHAIN_ID = int(os.getenv("MANTLE_CHAIN_ID", "5000"))
+MANTLE_ENABLE_ONCHAIN_WRITES = os.getenv("MANTLE_ENABLE_ONCHAIN_WRITES", "false").lower() == "true"
 SIGNAL_REGISTRY_ADDRESS = os.getenv("SIGNAL_REGISTRY_ADDRESS", "")
 QUANT_AGENT_EXECUTOR_ADDRESS = os.getenv("QUANT_AGENT_EXECUTOR_ADDRESS", "")
 CONTRACT_ADDRESS = SIGNAL_REGISTRY_ADDRESS  # backward-compat alias
@@ -36,7 +37,7 @@ ERC8004_VALIDATION_REGISTRY_ADDRESS = os.getenv(
 )
 AGENT_CARD_BASE_URL = os.getenv("AGENT_CARD_BASE_URL", "")
 PRIVATE_KEY = os.getenv("MANTLE_PRIVATE_KEY", "")
-CHAIN_CONFIGURED = bool(CONTRACT_ADDRESS and PRIVATE_KEY)
+CHAIN_CONFIGURED = bool(MANTLE_ENABLE_ONCHAIN_WRITES and CONTRACT_ADDRESS and PRIVATE_KEY)
 AGENT_ID = int(os.getenv("AGENT_ID", "0") or "0")
 AGENT_URI = os.getenv(
     "AGENT_URI",
@@ -52,7 +53,7 @@ X402_WALLET_ADDRESS = os.getenv("X402_WALLET_ADDRESS", "")
 X402_MAX_AUTO_PAY_USD = float(os.getenv("X402_MAX_AUTO_PAY_USD", "0.25") or "0.25")
 EXPLORER_BASE = os.getenv(
     "MANTLE_EXPLORER_BASE",
-    "https://explorer.sepolia.mantle.xyz",
+    "https://explorer.mantle.xyz",
 )
 # ---- TEE / Phala Network ----
 PHALA_TEE_ENABLED = os.getenv("PHALA_TEE_ENABLED", "false").lower() != "false"
@@ -76,6 +77,7 @@ ATLAS_MUTATION_RATE = float(os.getenv("ATLAS_MUTATION_RATE", "0.15") or "0.15")
 # ---- Byreal / RealClaw SDK ----
 BYREAL_SDK_PATH = os.getenv("BYREAL_SDK_PATH", "")
 REALCLAW_API_ENDPOINT = os.getenv("REALCLAW_API_ENDPOINT", "")
+BYREAL_PERPS_LIVE_ENABLED = os.getenv("BYREAL_PERPS_LIVE_ENABLED", "false").lower() == "true"
 
 # ---- FinPos 多时间尺度奖励 ----
 FINPOS_MULTI_TIMESCALE_ENABLED = os.getenv("FINPOS_MULTI_TIMESCALE_ENABLED", "false").lower() != "false"

@@ -141,8 +141,10 @@ to enable.
 Core Mantle proof path:
 
 ```env
-MANTLE_RPC_URL=https://rpc.sepolia.mantle.xyz
-MANTLE_CHAIN_ID=5003
+MANTLE_RPC_URL=https://rpc.mantle.xyz
+MANTLE_CHAIN_ID=5000
+MANTLE_EXPLORER_BASE=https://explorer.mantle.xyz
+MANTLE_ENABLE_ONCHAIN_WRITES=true
 SIGNAL_REGISTRY_ADDRESS=
 MANTLE_PRIVATE_KEY=
 AGENT_ID=
@@ -164,6 +166,7 @@ Optional live adapters:
 ```env
 BYREAL_API_BASE=
 BYREAL_API_KEY=
+BYREAL_PERPS_LIVE_ENABLED=false
 RECLAIM_APP_ID=
 RECLAIM_APP_SECRET=
 RECLAIM_VERIFIER_ADDRESS=

@@ -20,6 +20,7 @@ from agent_memory import AdaptiveOPROStore, AgentMemoryStore  # noqa: E402
 from .config import ATLAS_OPRO_STORE_PATH, MEMORY_STORE_PATH
 from .routers import agent as agent_router
 from .routers import analyze as analyze_router
+from .routers import byreal_perps as byreal_perps_router
 from .routers import gas as gas_router
 from .routers import health as health_router
 from .routers import signal as signal_router
@@ -40,6 +41,7 @@ app.add_middleware(
 
 app.include_router(agent_router.router)
 app.include_router(gas_router.router)
+app.include_router(byreal_perps_router.router)
 
 _memory_store = AgentMemoryStore(MEMORY_STORE_PATH)
 _opro_store = AdaptiveOPROStore(ATLAS_OPRO_STORE_PATH)

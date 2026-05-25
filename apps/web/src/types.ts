@@ -26,6 +26,7 @@ export type MultiAgentContext = {
   flowReport?: string;
   memoryReport?: string;
   reputationReport?: string;
+  riskReport?: string;
   riskCriticWarnings?: string[];
 };
 

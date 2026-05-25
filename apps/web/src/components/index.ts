@@ -12,3 +12,5 @@ export { MultiAgentPanel } from "./MultiAgentPanel";
 export { MantleProofPanel } from "./MantleProofPanel";
 export { FootnotePanel } from "./FootnotePanel";
 export { SkeletonGrid, SkeletonPanel } from "./SkeletonPanel";
+export { AgentTerminal } from "./AgentTerminal";
+export { JudgingEvidence } from "./JudgingEvidence";

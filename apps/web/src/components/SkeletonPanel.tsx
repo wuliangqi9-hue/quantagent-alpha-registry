@@ -29,15 +29,13 @@ export const SkeletonPanel: FC<Props> = ({ variant = "full", className }) => {
 
 export const SkeletonGrid: FC = () => (
   <div className="grid skeleton-grid" aria-busy="true" aria-label="Loading dashboard">
-    <SkeletonPanel variant="full" />
-    <SkeletonPanel variant="compact" />
-    <SkeletonPanel variant="compact" />
-    <SkeletonPanel variant="wide" />
-    <SkeletonPanel variant="full" />
-    <SkeletonPanel variant="compact" />
-    <SkeletonPanel variant="full" />
-    <SkeletonPanel variant="compact" />
-    <SkeletonPanel variant="compact" />
-    <SkeletonPanel variant="compact" />
+    <SkeletonPanel variant="wide" className="span-12" />
+    <SkeletonPanel variant="compact" className="span-4" />
+    <SkeletonPanel variant="compact" className="span-4" />
+    <SkeletonPanel variant="compact" className="span-4" />
+    <SkeletonPanel variant="wide" className="span-8" />
+    <SkeletonPanel variant="full" className="span-4" />
+    <SkeletonPanel variant="full" className="span-6" />
+    <SkeletonPanel variant="full" className="span-6" />
   </div>
 );

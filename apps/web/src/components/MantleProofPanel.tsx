@@ -1,5 +1,8 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import type { Analysis, ChainResult, FinposRewards, OproAdaptation, Settlement, TeeAttestation, ZktlsProof } from "../types";
+
+const MANTLE_EXPLORER = "https://explorer.mantle.xyz";
 
 const shortHash = (value: string | null | undefined): string =>
   value ? `${value.slice(0, 10)}…${value.slice(-8)}` : "Not configured";
@@ -56,7 +59,16 @@ const TeeAttestationRow = ({ tee }: { tee?: TeeAttestation }) => {
     <>
       <h2 style={{ marginTop: 16 }}>TEE Attestation</h2>
       <div className={`proof-state ${tee.verified ? "recorded" : "demo"}`}>
-        {tee.verified ? "Attestation verified" : "Attestation pending"}
+        {tee.verified ? (
+          <motion.span
+            animate={{ opacity: [1, 0.5, 1] }}
+            transition={{ duration: 2, repeat: Infinity }}
+          >
+            ✅ Attestation verified
+          </motion.span>
+        ) : (
+          "Attestation pending"
+        )}
       </div>
       <div className="metric">
         <span>Platform</span>
@@ -77,7 +89,16 @@ const ZktlsProofRow = ({ proof }: { proof?: ZktlsProof }) => {
     <>
       <h2 style={{ marginTop: 16 }}>zkTLS Data Provenance</h2>
       <div className={`proof-state ${proof.verified ? "recorded" : "demo"}`}>
-        {proof.verified ? "Zero‑knowledge proof verified" : "ZK proof pending"}
+        {proof.verified ? (
+          <motion.span
+            animate={{ opacity: [1, 0.5, 1] }}
+            transition={{ duration: 2, repeat: Infinity }}
+          >
+            ✅ Zero‑knowledge proof verified
+          </motion.span>
+        ) : (
+          "ZK proof pending"
+        )}
       </div>
       <div className="metric">
         <span>Provider</span>
@@ -121,11 +142,31 @@ type Props = {
   chain: ChainResult | null;
   settlement: Settlement | null;
   settlementChain: ChainResult | null;
+  walletConnected: boolean;
+  signMessage: (msg: string) => Promise<string | null>;
 };
 
-export function MantleProofPanel({ data, chain, settlement, settlementChain }: Props) {
+export function MantleProofPanel({
+  data,
+  chain,
+  settlement,
+  settlementChain,
+  walletConnected,
+  signMessage,
+}: Props) {
   const [copied, setCopied] = useState(false);
   const [copiedBundle, setCopiedBundle] = useState(false);
+  const [signing, setSigning] = useState(false);
+  const [signature, setSignature] = useState<string | null>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  // Pulse glow when any proof becomes verified
+  const showPulse = Boolean(
+    chain?.recorded ||
+    settlementChain?.recorded ||
+    data.dataProof?.verified ||
+    settlement?.teeAttestation?.verified
+  );
 
   const copyReport = useCallback(async () => {
     if (!data) return;
@@ -142,13 +183,46 @@ export function MantleProofPanel({ data, chain, settlement, settlementChain }: P
     window.setTimeout(() => setCopiedBundle(false), 1600);
   }, [data.proofBundle, settlement?.proofBundle]);
 
+  const handleSign = useCallback(async () => {
+    if (!walletConnected || !signMessage) return;
+    setSigning(true);
+    const msg = `QuantAgent Attestation\nSignal: ${data.signalHash}\nModel: ${data.modelVersion}\nSchema: ${data.reportSchema}`;
+    const sig = await signMessage(msg);
+    setSignature(sig);
+    setSigning(false);
+  }, [walletConnected, signMessage, data.signalHash, data.modelVersion, data.reportSchema]);
+
+  const explorerUrl = chain?.txHash
+    ? `${MANTLE_EXPLORER}/tx/${chain.txHash}`
+    : settlementChain?.txHash
+      ? `${MANTLE_EXPLORER}/tx/${settlementChain.txHash}`
+      : null;
+
   return (
-    <section className="panel span-4">
+    <section className="panel span-4" ref={panelRef}>
       <span className="section-kicker">Audit trail</span>
       <h2>Mantle proof</h2>
-      <div className={`proof-state ${chain?.recorded ? "recorded" : "demo"}`}>
+
+      {/* Pulse glow overlay */}
+      <AnimatePresence>
+        {showPulse && (
+          <motion.div
+            className="proof-glow"
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: [0.15, 0.05, 0.15], scale: [1, 1.02, 1] }}
+            transition={{ duration: 2.5, repeat: Infinity }}
+          />
+        )}
+      </AnimatePresence>
+
+      <motion.div
+        className={`proof-state ${chain?.recorded ? "recorded" : "demo"}`}
+        animate={chain?.recorded ? { scale: [1, 1.02, 1] } : {}}
+        transition={{ duration: 3, repeat: Infinity }}
+      >
         {proofLabel(chain, Boolean(data.contractAddress))}
-      </div>
+      </motion.div>
+
       <div className="proof-timeline">
         <div className={`proof-step ${data.signalHash ? "recorded" : "demo"}`}>
           <span>Signal</span>
@@ -167,10 +241,12 @@ export function MantleProofPanel({ data, chain, settlement, settlementChain }: P
           <strong>{settlementChain?.recorded ? "written" : "simulated"}</strong>
         </div>
       </div>
+
       <div className="metric">
         <span>Signal hash</span>
       </div>
       <div className="hash">{data.signalHash}</div>
+
       <div className="metric" style={{ marginTop: 12 }}>
         <span>Model version</span>
         <strong style={{ fontSize: "0.75rem" }}>{data.modelVersion || "unknown"}</strong>
@@ -183,6 +259,7 @@ export function MantleProofPanel({ data, chain, settlement, settlementChain }: P
         <span>API proof mode</span>
         <strong style={{ fontSize: "0.75rem" }}>{data.proofMode || "demo-proof"}</strong>
       </div>
+
       {(settlement?.proofBundleHash || data.proofBundle?.proofBundleHash) && (
         <>
           <div className="metric">
@@ -239,13 +316,22 @@ export function MantleProofPanel({ data, chain, settlement, settlementChain }: P
           </div>
         </>
       )}
-      {chain?.txHash && chain.explorerUrl && (
+
+      {/* Explorer links */}
+      {explorerUrl && (
         <p style={{ marginTop: 12 }}>
-          <a href={chain.explorerUrl} target="_blank" rel="noreferrer" style={{ color: "var(--accent)" }}>
+          🔗{" "}
+          <a href={explorerUrl} target="_blank" rel="noreferrer" style={{ color: "var(--accent)" }}>
             View on Mantle Explorer
           </a>
         </p>
       )}
+      {chain?.txHash && !explorerUrl && (
+        <p style={{ marginTop: 8, fontSize: "0.8rem", color: "var(--muted)" }}>
+          TX: {shortHash(chain.txHash)}
+        </p>
+      )}
+
       {chain?.message && (
         <p style={{ color: "var(--muted)", fontSize: "0.85rem" }}>{chain.message}</p>
       )}
@@ -261,6 +347,7 @@ export function MantleProofPanel({ data, chain, settlement, settlementChain }: P
           <strong style={{ fontSize: "0.75rem" }}>{shortHash(chain.proofURI)}</strong>
         </div>
       )}
+
       {settlement && (
         <>
           <h2 style={{ marginTop: 16 }}>Reputation settlement</h2>
@@ -295,7 +382,25 @@ export function MantleProofPanel({ data, chain, settlement, settlementChain }: P
           </div>
         </>
       )}
+
       {chain?.error && <p className="error">{chain.error}</p>}
+
+      {/* Signature section */}
+      <div style={{ marginTop: 12 }}>
+        <button
+          className="secondary full-width"
+          onClick={handleSign}
+          disabled={!walletConnected || signing}
+        >
+          {signing ? "Signing…" : signature ? "✍ Re-sign attestation" : "✍ Sign attestation"}
+        </button>
+        {signature && (
+          <div className="hash" style={{ marginTop: 6, fontSize: "0.65rem" }}>
+            Sig: {shortHash(signature)}
+          </div>
+        )}
+      </div>
+
       <button className="secondary full-width" onClick={copyReport}>
         {copied ? "Decision report copied" : "Copy decision report JSON"}
       </button>

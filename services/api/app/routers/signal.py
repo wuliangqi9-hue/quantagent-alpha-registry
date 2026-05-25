@@ -8,10 +8,10 @@ from fastapi import APIRouter, HTTPException
 from agent_memory import MemoryRecord
 
 from ..atlas_opro import get_opro_store, trigger_opro_adaptation
+from ...atlas_adaptive_engine import evaluate_window, mutate_prompt
 from ..byreal import byreal_status
 from ..chain import (
     get_agent_status,
-    mock_record,
     record_signal_on_chain,
     register_agent_on_chain,
     submit_reputation_feedback,
@@ -46,6 +46,89 @@ def set_last_analysis(data: dict[str, Any]) -> None:
     _last_analysis = data
 
 
+def _trade_window_from_memory(previous_records: list[Any], current: dict[str, Any]) -> list[dict[str, Any]]:
+    trades: list[dict[str, Any]] = []
+    for record in (previous_records or [])[-8:]:
+        if isinstance(record, dict):
+            settlement = record.get("settlement", record)
+        else:
+            settlement = asdict(record)
+        entry = settlement.get("entryPrice") or settlement.get("entry_price")
+        exit_price = settlement.get("exitPrice") or settlement.get("exit_price")
+        side = settlement.get("direction") or settlement.get("side")
+        if entry is not None and exit_price is not None and side:
+            trades.append({"entry": entry, "exit": exit_price, "side": side})
+
+    if current.get("entryPrice") is not None and current.get("exitPrice") is not None:
+        trades.append(
+            {
+                "entry": current.get("entryPrice"),
+                "exit": current.get("exitPrice"),
+                "side": current.get("direction") or "long",
+            }
+        )
+    return trades
+
+
+async def _apply_atlas_adaptive_engine(
+    *,
+    payload: dict[str, Any],
+    settlement: dict[str, Any],
+    previous_records: list[Any],
+    opro_store: Any,
+) -> dict[str, Any] | None:
+    if opro_store is None:
+        return None
+
+    trades = _trade_window_from_memory(previous_records, settlement)
+    score = evaluate_window(trades)
+    adaptive_prompt = (payload.get("memory") or {}).get("adaptivePrompt", {})
+    current_prompt = adaptive_prompt.get("template") or "Prioritize position-aware decisions and strict risk control."
+    market_context = (
+        f"symbol={payload.get('symbol')}; "
+        f"direction={payload.get('selection', {}).get('signalDirection')}; "
+        f"regime={payload.get('selection', {}).get('marketRegime')}; "
+        f"pnlBps={settlement.get('pnlBps')}; "
+        f"proofMode={payload.get('proofMode')}"
+    )
+
+    if score >= 0 and float(settlement.get("pnlBps") or 0.0) >= 0:
+        return {
+            "schema": "quantagent.atlas-adaptive-engine.v1",
+            "score": score,
+            "mutated": False,
+            "rationale": "Recent trade window is non-negative; prompt mutation was not required.",
+        }
+
+    try:
+        new_prompt = await mutate_prompt(current_prompt, score, market_context)
+        variant = opro_store.append_variant(new_prompt, source="openai-atlas-engine")
+        return {
+            "schema": "quantagent.atlas-adaptive-engine.v1",
+            "score": score,
+            "mutated": True,
+            "promptId": variant.id,
+            "selectedTemplate": variant.template,
+            "rationale": "Negative trade-window score triggered OpenAI prompt mutation.",
+        }
+    except Exception as exc:
+        fallback = opro_store.append_variant(
+            (
+                f"{current_prompt} Loss-window score {score:.4f}: reduce exposure, "
+                "require stronger liquidity confirmation, and avoid increasing risk until the next settlement recovers."
+            ),
+            source="deterministic-atlas-engine",
+        )
+        return {
+            "schema": "quantagent.atlas-adaptive-engine.v1",
+            "score": score,
+            "mutated": True,
+            "promptId": fallback.id,
+            "selectedTemplate": fallback.template,
+            "rationale": f"OpenAI mutation unavailable; deterministic risk prompt applied: {exc}",
+        }
+
+
 @router.post("/record-signal")
 async def record_signal(body: RecordSignalRequest):
     if body.useLastAnalysis:
@@ -66,32 +149,36 @@ async def record_signal(body: RecordSignalRequest):
         model_version = body.modelVersion
         mode = body.mode or "offline-demo"
 
-    try:
-        report = payload.get("decisionReport") if body.useLastAnalysis else None
-        chain_result = record_signal_on_chain(sig, symbol, strategy_id, model_version, mode, report)
-        if not chain_result.get("recorded") and not CHAIN_CONFIGURED:
-            chain_result = mock_record(sig, symbol, strategy_id, model_version, mode)
-    except Exception as exc:
-        if CHAIN_CONFIGURED:
-            chain_result = {
-                "recorded": False,
-                "mock": False,
-                "mode": mode,
+    if not CHAIN_CONFIGURED:
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "code": "mantle-config-required",
+                "message": "Set MANTLE_ENABLE_ONCHAIN_WRITES=true, SIGNAL_REGISTRY_ADDRESS, and MANTLE_PRIVATE_KEY to record a real Mantle transaction.",
                 "signalHash": sig,
                 "symbol": symbol,
                 "strategyId": strategy_id,
-                "modelVersion": model_version,
-                "txHash": None,
-                "explorerUrl": None,
-                "error": str(exc),
-                "message": "Configured on-chain recording failed.",
-            }
-        else:
-            chain_result = {
-                "recorded": False,
-                "error": str(exc),
-                **mock_record(sig, symbol, strategy_id, model_version, mode),
-            }
+                "proofMode": "config-required",
+            },
+        )
+
+    try:
+        report = payload.get("decisionReport") if body.useLastAnalysis else None
+        chain_result = record_signal_on_chain(sig, symbol, strategy_id, model_version, mode, report)
+    except Exception as exc:
+        chain_result = {
+            "recorded": False,
+            "mock": False,
+            "mode": mode,
+            "signalHash": sig,
+            "symbol": symbol,
+            "strategyId": strategy_id,
+            "modelVersion": model_version,
+            "txHash": None,
+            "explorerUrl": None,
+            "error": str(exc),
+            "message": "Configured on-chain recording failed.",
+        }
 
     return {"signalHash": sig, "chain": chain_result}
 
@@ -163,7 +250,29 @@ async def settle(
                 prompt_id=adaptive_prompt.get("id"),
                 prompt_template=adaptive_prompt.get("template"),
                 pnl_bps=float(settlement.get("pnlBps") or 0.0),
+                history=[
+                    {"settlement": asdict(r)} if not isinstance(r, dict) else r
+                    for r in (previous_records or [])[-12:]
+                ],
             )
+            atlas_engine_result = await _apply_atlas_adaptive_engine(
+                payload=payload,
+                settlement=settlement,
+                previous_records=previous_records,
+                opro_store=opro_store,
+            )
+            if atlas_engine_result:
+                settlement["atlasAdaptiveEngine"] = atlas_engine_result
+                if atlas_engine_result.get("mutated"):
+                    settlement["oproAdaptation"] = {
+                        "schema": "quantagent.atlas-opro-adaptation.v1",
+                        "iteration": len(opro_store.load()),
+                        "promptId": atlas_engine_result.get("promptId"),
+                        "mutations": ["atlas-adaptive-engine"],
+                        "performanceDelta": atlas_engine_result.get("score", 0.0),
+                        "selectedTemplate": atlas_engine_result.get("selectedTemplate", ""),
+                        "rationale": atlas_engine_result.get("rationale", ""),
+                    }
         # 触发一次适应周期（基于市场反馈）
         market_feedback = {
             "regime": (payload.get("regime") or {}).get("regime", "normal"),
@@ -171,7 +280,7 @@ async def settle(
             "pnlBps": float(settlement.get("pnlBps", 0)),
         }
         opro_adapt = trigger_opro_adaptation(market_feedback=market_feedback)
-        if opro_adapt:
+        if opro_adapt and "oproAdaptation" not in settlement:
             opro_result = opro_adapt
             settlement["oproAdaptation"] = opro_adapt
 
@@ -194,8 +303,11 @@ async def settle(
                 },
             )
             settlement["teeAttestation"] = tee_attestation.to_dict()
-        except Exception:
-            pass  # TEE 证明失败不阻塞结算流程
+        except Exception as exc:
+            settlement["teeAttestationError"] = {
+                "code": "tee-attestation-failed",
+                "message": str(exc),
+            }
 
         # ---- Reclaim zkTLS 数据溯源证明 ----
         zktls_proof = None
@@ -232,8 +344,11 @@ async def settle(
                 )
                 settlement["zktlsProof"] = zktls_proof.to_dict()
                 settlement["zktlsVerification"] = verification_payload
-        except Exception:
-            pass  # zkTLS 证明失败不阻塞结算流程
+        except Exception as exc:
+            settlement["zktlsProofError"] = {
+                "code": "zktls-proof-failed",
+                "message": str(exc),
+            }
 
         chain_result = submit_reputation_feedback(
             settlement["score"],
@@ -269,22 +384,18 @@ async def settle(
     except Exception as exc:
         previous_records = memory_store.load(symbol=payload["symbol"]) if memory_store is not None else []
         settlement = settle_last_signal(payload, body.exitPrice, previous_records=previous_records)
-        if CHAIN_CONFIGURED:
-            chain_result = {
-                "recorded": False,
-                "mock": False,
-                "proofMode": "real-onchain",
-                "error": str(exc),
-                "message": "Configured reputation write failed.",
-            }
-        else:
-            chain_result = {
-                "recorded": False,
-                "mock": True,
-                "proofMode": "demo-proof",
-                "signalHash": payload["signalHash"],
-                "message": "Demo settlement calculated locally.",
-            }
+        chain_result = {
+            "recorded": False,
+            "mock": False,
+            "proofMode": "real-onchain" if CHAIN_CONFIGURED else "config-required",
+            "signalHash": payload["signalHash"],
+            "error": str(exc),
+            "message": (
+                "Configured reputation write failed."
+                if CHAIN_CONFIGURED
+                else "Settlement calculated locally; configure Mantle credentials to write reputation on-chain."
+            ),
+        }
 
     result: dict[str, Any] = {"settlement": settlement, "chain": chain_result}
     if memory_store is not None:

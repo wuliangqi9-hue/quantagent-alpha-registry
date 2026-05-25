@@ -9,6 +9,7 @@ from .config import (
     CONTRACT_ADDRESS,
     EFFECTIVE_MANTLE_RPC_URL,
     EXPLORER_BASE,
+    MANTLE_ENABLE_ONCHAIN_WRITES,
     MANTLE_CHAIN_ID,
     PRIVATE_KEY,
     PRIVATE_MEMPOOL_RPC_URL,
@@ -114,12 +115,14 @@ def _load_abi() -> list[dict[str, Any]]:
 
 
 def chain_ready() -> bool:
-    return bool(CONTRACT_ADDRESS and PRIVATE_KEY)
+    return bool(MANTLE_ENABLE_ONCHAIN_WRITES and CONTRACT_ADDRESS and PRIVATE_KEY)
 
 
 def _web3_context() -> tuple[Any, Any, Any, Any]:
     if not chain_ready():
-        raise RuntimeError("Set both SIGNAL_REGISTRY_ADDRESS and MANTLE_PRIVATE_KEY to submit on-chain.")
+        raise RuntimeError(
+            "Set MANTLE_ENABLE_ONCHAIN_WRITES=true, SIGNAL_REGISTRY_ADDRESS, and MANTLE_PRIVATE_KEY to submit on-chain."
+        )
     try:
         from web3 import Web3
     except ImportError as exc:
@@ -252,16 +255,7 @@ def record_signal_on_chain(
     decision_report: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     if not chain_ready():
-        return {
-            "recorded": False,
-            "mock": True,
-            "proofMode": "demo-proof",
-            "mode": mode,
-            "signalHash": signal_hash,
-            "message": "Set both SIGNAL_REGISTRY_ADDRESS and MANTLE_PRIVATE_KEY to submit on-chain.",
-            "explorerUrl": None,
-            "txHash": None,
-        }
+        raise RuntimeError("Set both SIGNAL_REGISTRY_ADDRESS and MANTLE_PRIVATE_KEY to submit on-chain.")
 
     Web3, w3, account, contract = _web3_context()
     hash_bytes = Web3.to_bytes(hexstr=signal_hash)

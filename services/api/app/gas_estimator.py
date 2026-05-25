@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 # ── gas estimator constants ──────────────────────────────────────────
 # Mantle network uses MNT tokens for gas with a relatively stable base fee.
-# These defaults are reasonable for Mantle Sepolia and can be overridden
+# These defaults are conservative for Mantle and can be overridden
 # via environment variables.
 DEFAULT_GAS_MULTIPLIER = 1.2  # 20% buffer for execution safety
 
@@ -80,7 +80,7 @@ async def estimate_gas_cost(
     if mnt_usd_price is None:
         mnt_usd_price = await fetch_mnt_price()
 
-    base_fee = 0.02  # Gwei — safe Mantle Sepolia fallback
+    base_fee = 0.02  # Gwei — safe Mantle fallback
     priority_fee = 1.0  # Gwei
     gas_price = 1.0  # Gwei — fallback for legacy mode
 

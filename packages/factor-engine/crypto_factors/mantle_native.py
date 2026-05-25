@@ -4,6 +4,7 @@ import asyncio
 import logging
 from typing import Any
 
+import httpx
 import numpy as np
 import pandas as pd
 
@@ -13,9 +14,9 @@ logger = logging.getLogger(__name__)
 # These factors are specific to the Mantle L2 ecosystem and demonstrate
 # deep integration with the Mantle network for the Turing Test hackathon.
 
-# Well-known DEX and staking protocol addresses on Mantle
-MANTLE_DEX_MERCHANT_MOE_ADDRESS = "0x..."  # Merchant Moe DEX (main liquidity hub)
-MANTLE_STAKING_ADDRESS = "0x..."  # Mantle Staking (MNT staking)
+MANTLE_DEFAULT_RPC = "https://rpc.sepolia.mantle.xyz"
+DEFILLAMA_PROTOCOLS_API = "https://api.llama.fi/protocols"
+DEFILLAMA_MANTLE_CHAIN_API = "https://api.llama.fi/v2/historicalChainTvl/Mantle"
 MNT_TOKEN_ADDRESS = "0xDeadDeAddeAddEAddeadDEaDDEAdDeaDDeAD0000"
 
 
@@ -106,18 +107,8 @@ async def fetch_mantle_metrics(
     *,
     timeout: float = 15.0,
 ) -> dict[str, Any]:
-    """
-    Fetch live Mantle network metrics from on-chain sources.
-
-    Currently returns simulated/placeholder data. In production, this would
-    query the Mantle RPC for real on-chain data including:
-    - Total value locked from DeFi protocols
-    - DEX liquidity from Merchant Moe
-    - MNT staking yield from staking contracts
-    - Sequencer revenue from L2 system contracts
-    """
-    # Placeholder for live data fetching
-    # In production, use httpx to query Mantle RPC + subgraph APIs
+    """Fetch live Mantle metrics using public RPC and DeFiLlama HTTP APIs."""
+    rpc = rpc_url or MANTLE_DEFAULT_RPC
     metrics: dict[str, Any] = {
         "mantle_tvl_usd": None,
         "dex_liquidity_mnt_usd": None,
@@ -126,7 +117,83 @@ async def fetch_mantle_metrics(
         "l2_sequencer_revenue_mnt": None,
         "l2_tx_count": None,
         "mnt_price_usd": None,
+        "l2_gas_price_wei": None,
+        "l2_latest_block": None,
         "_fetch_timestamp_utc": pd.Timestamp.utcnow().isoformat(),
-        "_status": "simulated",
+        "_status": "live",
+        "_sources": [],
+        "_errors": [],
     }
+
+    async with httpx.AsyncClient(timeout=timeout) as client:
+        try:
+            gas_resp, block_resp = await asyncio.gather(
+                client.post(
+                    rpc,
+                    json={"jsonrpc": "2.0", "id": 1, "method": "eth_gasPrice", "params": []},
+                ),
+                client.post(
+                    rpc,
+                    json={"jsonrpc": "2.0", "id": 2, "method": "eth_blockNumber", "params": []},
+                ),
+            )
+            gas_resp.raise_for_status()
+            block_resp.raise_for_status()
+            gas_body = gas_resp.json()
+            block_body = block_resp.json()
+            if gas_body.get("result"):
+                metrics["l2_gas_price_wei"] = int(gas_body["result"], 16)
+            if block_body.get("result"):
+                metrics["l2_latest_block"] = int(block_body["result"], 16)
+            metrics["_sources"].append({"provider": "mantle-rpc", "url": rpc})
+        except Exception as exc:
+            metrics["_errors"].append({"provider": "mantle-rpc", "message": str(exc)})
+
+        try:
+            chain_resp = await client.get(DEFILLAMA_MANTLE_CHAIN_API)
+            chain_resp.raise_for_status()
+            chain_rows = chain_resp.json()
+            if isinstance(chain_rows, list) and chain_rows:
+                latest = chain_rows[-1]
+                metrics["mantle_tvl_usd"] = float(latest.get("tvl") or 0.0)
+                if len(chain_rows) >= 2:
+                    previous = float(chain_rows[-2].get("tvl") or 0.0)
+                    metrics["mantle_tvl_change_1d_pct"] = (
+                        (metrics["mantle_tvl_usd"] - previous) / previous if previous else None
+                    )
+            metrics["_sources"].append({"provider": "defillama", "url": DEFILLAMA_MANTLE_CHAIN_API})
+        except Exception as exc:
+            metrics["_errors"].append({"provider": "defillama-chain", "message": str(exc)})
+
+        try:
+            protocols_resp = await client.get(DEFILLAMA_PROTOCOLS_API)
+            protocols_resp.raise_for_status()
+            protocols = protocols_resp.json()
+            dex_names = {"merchant moe", "agni finance"}
+            mantle_dex_tvl = 0.0
+            mantle_dex_volume = 0.0
+            matched: list[str] = []
+            for item in protocols if isinstance(protocols, list) else []:
+                name = str(item.get("name", "")).lower()
+                chains = [str(chain).lower() for chain in item.get("chains", [])]
+                if name in dex_names and "mantle" in chains:
+                    matched.append(str(item.get("name")))
+                    mantle_dex_tvl += float(item.get("tvl") or 0.0)
+                    mantle_dex_volume += float(item.get("volume24h") or item.get("change_1d") or 0.0)
+            metrics["dex_liquidity_mnt_usd"] = mantle_dex_tvl or None
+            metrics["dex_volume_24h"] = mantle_dex_volume or None
+            metrics["_sources"].append(
+                {
+                    "provider": "defillama-protocols",
+                    "url": DEFILLAMA_PROTOCOLS_API,
+                    "protocols": matched,
+                }
+            )
+        except Exception as exc:
+            metrics["_errors"].append({"provider": "defillama-protocols", "message": str(exc)})
+
+    if metrics["_errors"] and not metrics["_sources"]:
+        metrics["_status"] = "unavailable"
+    elif metrics["_errors"]:
+        metrics["_status"] = "partial-live"
     return metrics

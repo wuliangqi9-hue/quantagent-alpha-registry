@@ -197,10 +197,10 @@ def compute_reward_for_a2c(
     """
     summary = (memory_context or {}).get("summary", {}) if memory_context else {}
 
-    latest_pnl = float(summary.get("latestPnlBps", 0.0))
-    avg_pnl = float(summary.get("avgPnlBps", 0.0))
-    max_dd = abs(float(summary.get("maxDrawdownBps", 0.0)))
-    cons_losses = int(summary.get("consecutiveLosses", 0))
+    latest_pnl = float(summary.get("latestPnlBps") or 0.0)
+    avg_pnl = float(summary.get("avgPnlBps") or 0.0)
+    max_dd = abs(float(summary.get("maxDrawdownBps") or 0.0))
+    cons_losses = int(summary.get("consecutiveLosses") or 0)
 
     if reward_window is not None:
         reward_window.push(immediate_pnl_bps)

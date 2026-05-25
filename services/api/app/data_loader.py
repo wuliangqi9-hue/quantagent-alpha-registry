@@ -139,23 +139,25 @@ async def fetch_binance_klines(symbol: str, limit: int = 500) -> pd.DataFrame:
             }
         )
     df = pd.DataFrame(records)
-    # Enrich with derivative/on-chain placeholders for factor module compatibility
+    # Live Binance klines provide only OHLCV. Do not fabricate derivative or
+    # on-chain values; downstream factors will mark absent metrics as missing.
     df["circulating_supply"] = 1.0
-    df["funding_rate"] = 0.0001
-    df["open_interest"] = df["close"] * df["volume"] * 100
     df["spot_price"] = df["close"]
-    df["perp_price"] = df["close"] * 1.0002
-    df["long_short_ratio"] = 1.0
-    df["taker_buy_volume"] = df["volume"] * 0.55
-    df["taker_sell_volume"] = df["volume"] * 0.45
     df["market_cap"] = df["close"] * 1e6
-    df["realized_cap"] = df["close"] * 0.8e6
-    df["sopr"] = 1.0
-    df["transfer_volume"] = df["volume"] * df["close"]
-    df["tx_count"] = 100000
-    df["active_addresses"] = 500000
-    df["fees"] = 1000
-    df["github_commits"] = 10
+    try:
+        from crypto_factors.mantle_native import fetch_mantle_metrics
+
+        mantle_metrics = await fetch_mantle_metrics()
+        for key, value in mantle_metrics.items():
+            if key.startswith("_") or value is None:
+                continue
+            df[key] = value
+        df.attrs["mantleMetrics"] = mantle_metrics
+    except Exception as exc:
+        df.attrs["mantleMetrics"] = {
+            "_status": "unavailable",
+            "_errors": [{"provider": "mantle-native", "message": str(exc)}],
+        }
     return df
 
 
@@ -163,10 +165,7 @@ async def load_market_data(symbol: str, mode: str | None = None) -> tuple[pd.Dat
     if mode == "offline-demo":
         return load_offline(symbol)
     if mode == "live":
-        try:
-            return await fetch_binance_klines(symbol), "live"
-        except Exception:
-            return load_offline(symbol)
+        return await fetch_binance_klines(symbol), "live"
 
     try:
         return await fetch_binance_klines(symbol), "live"

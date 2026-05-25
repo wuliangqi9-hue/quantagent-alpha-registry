@@ -5,8 +5,10 @@ services:
     plan: free
     envVars:
       - key: MANTLE_RPC_URL
-        value: https://rpc.sepolia.mantle.xyz
+        value: https://rpc.mantle.xyz
       - key: MANTLE_CHAIN_ID
-        value: "5003"
+        value: "5000"
       - key: MANTLE_EXPLORER_BASE
-        value: https://explorer.sepolia.mantle.xyz
+        value: https://explorer.mantle.xyz
+      - key: MANTLE_ENABLE_ONCHAIN_WRITES
+        value: "false"

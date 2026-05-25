@@ -19,6 +19,7 @@ sys.path.insert(0, str(ROOT / "packages" / "agent-memory"))
 sys.path.insert(0, str(ROOT / "packages" / "agent-orchestrator"))
 
 from services.api.app.main import app  # noqa: E402
+from services.api.byreal_router import calculate_cvar_limit  # noqa: E402
 
 
 client = TestClient(app)
@@ -39,6 +40,16 @@ def test_health_and_agent_card_contract() -> None:
     assert "supportedTrust" in body
 
 
+def test_byreal_perps_cvar_limit_endpoint() -> None:
+    assert calculate_cvar_limit(1000.0) == 80.0
+
+    response = client.get("/api/byreal/perps/cvar-limit", params={"capital": 1000})
+    assert response.status_code == 200
+    body = response.json()
+    assert body["capital"] == 1000.0
+    assert body["maxExposure"] == 80.0
+
+
 def test_offline_demo_flow_for_supported_assets() -> None:
     for symbol in ["BTC", "ETH", "SOL"]:
         analysis = client.post(
@@ -56,8 +67,12 @@ def test_offline_demo_flow_for_supported_assets() -> None:
         assert analysis_body["erc8004Status"]["identity"]["agentRegistry"].startswith("eip155:")
 
         record = client.post("/api/record-signal", json={"useLastAnalysis": True})
-        assert record.status_code == 200, record.text
-        assert record.json()["signalHash"] == analysis_body["signalHash"]
+        if os.getenv("SIGNAL_REGISTRY_ADDRESS") and os.getenv("MANTLE_PRIVATE_KEY"):
+            assert record.status_code == 200, record.text
+            assert record.json()["signalHash"] == analysis_body["signalHash"]
+        else:
+            assert record.status_code == 503, record.text
+            assert record.json()["detail"]["code"] == "mantle-config-required"
 
         settle = client.post("/api/settle", json={"useLastAnalysis": True})
         assert settle.status_code == 200, settle.text
