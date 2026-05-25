@@ -80,6 +80,9 @@ REALCLAW_API_ENDPOINT = os.getenv("REALCLAW_API_ENDPOINT", "")
 # ---- FinPos 多时间尺度奖励 ----
 FINPOS_MULTI_TIMESCALE_ENABLED = os.getenv("FINPOS_MULTI_TIMESCALE_ENABLED", "false").lower() != "false"
 
+# ---- A2C 强化学习在线训练 ----
+A2C_TRAINING_ENABLED = os.getenv("A2C_TRAINING_ENABLED", "false").lower() != "false"
+
 # ---- x402 机器支付协议 ----
 X402_ENABLED = bool(BLOCKY402_FACILITATOR_URL and X402_WALLET_ADDRESS)
 

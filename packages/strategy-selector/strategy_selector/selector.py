@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field, ValidationError, field_validator
 
 from .benchmark import STRATEGY_BENCHMARKS, build_benchmark_chart
 from .finpos import DirectionDecisionAgent, QuantityRiskDecisionAgent
+from .finpos_rewards import RewardWindow, compute_reward_for_a2c
 from .policy_blender import build_policy_output
 
 MODEL_VERSION = "strategy-selector-1.1.0-academic-agent"
@@ -576,6 +577,8 @@ def select_strategy(
     last_settlement_pnl: float | None = None,
     memory_context: dict[str, Any] | None = None,
     multi_agent_context: dict[str, Any] | None = None,
+    reward_window: RewardWindow | None = None,
+    immediate_pnl_bps: float = 0.0,
 ) -> dict[str, Any]:
     factors = _factor_map(factor_summary)
     recent_vol = float(factor_summary.get("recentVolatility24h") or 0.0)
@@ -640,6 +643,21 @@ def select_strategy(
         base_confidence=confidence,
     )
     confidence = policy["policyConfidence"]
+
+    # ---- FinPos 多时间尺度复合奖励计算 ----
+    finpos_reward = compute_reward_for_a2c(
+        immediate_pnl_bps=immediate_pnl_bps,
+        memory_context=memory_context,
+        reward_window=reward_window,
+    )
+
+    # 复合得分作为额外的软风控因子调节 confidence
+    if finpos_reward["composite_score"] < -0.3:
+        confidence = round(max(0.25, confidence - 0.10), 2)
+        warnings = [*warnings, f"FinPos composite score {finpos_reward['composite_score']:.3f} triggers risk haircut."]
+    elif finpos_reward["composite_score"] > 0.4:
+        confidence = round(min(0.95, confidence + 0.04), 2)
+        drivers = [*drivers, f"FinPos composite score {finpos_reward['composite_score']:.3f} supports confidence increase."]
 
     bench = STRATEGY_BENCHMARKS[_benchmark_id(strategy_id)]
     regime_key = f"{regime}_sharpe" if f"{regime}_sharpe" in bench else "range_sharpe"
@@ -723,6 +741,7 @@ def select_strategy(
         "policyScore": policy["policyScore"],
         "criticValue": policy["criticValue"],
         "rewardFeatures": policy["rewardFeatures"],
+        "finposReward": finpos_reward,
         "benchmarkSummary": benchmark_summary,
         "benchmarkChart": chart,
         "alphaFormula": llm_decision.alphaFormula or default_decision.alphaFormula,

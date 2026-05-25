@@ -15,6 +15,8 @@ class A2CDecision:
     stateValue: float
     actionValue: float
     advantage: float
+    confidence: float
+    explorationNeeded: bool
     rewardEstimate: float
     gamma: float
     rationale: str
@@ -27,6 +29,8 @@ class A2CDecision:
             "stateValue": self.stateValue,
             "actionValue": self.actionValue,
             "advantage": self.advantage,
+            "confidence": self.confidence,
+            "explorationNeeded": self.explorationNeeded,
             "rewardEstimate": self.rewardEstimate,
             "gamma": self.gamma,
             "rationale": self.rationale,
@@ -69,17 +73,28 @@ class A2CPolicyEngine:
         action_value = math.tanh(state_value + actor_exposure + reward)
         advantage = action_value - state_value
 
+        # ---- 置信度与探索标记（AlphaQuanter 主动信息获取）----
+        # 置信度 = 1 - |advantage| / max_advantage_range
+        # advantage 越小（不确定性越高）→ 置信度越低 → 需要主动探索
+        confidence_raw = 1.0 - min(1.0, abs(advantage) / 0.35)
+        confidence = round(confidence_raw, 4)
+        # 当置信度低于 30% 且波动率适中时，触发主动数据探索
+        exploration_needed = confidence < 0.30 and volatility < 1.8
+
         return A2CDecision(
-            schema="quantagent.qtmrl-a2c.v1",
+            schema="quantagent.qtmrl-a2c.v2",
             stateVector=state,
             actorExposure=actor_exposure,
             stateValue=round(state_value, 5),
             actionValue=round(action_value, 5),
             advantage=round(advantage, 5),
+            confidence=confidence,
+            explorationNeeded=exploration_needed,
             rewardEstimate=round(reward, 5),
             gamma=self.gamma,
             rationale=(
                 f"{self.VERSION}: A(s,a)=Q(s,a)-V(s)={advantage:.5f}; "
+                f"confidence={confidence:.2%}; explore={exploration_needed}; "
                 f"R=immediate+gamma*cumulative={reward:.5f}; "
                 f"actor exposure proposal={actor_exposure:.2%}."
             ),

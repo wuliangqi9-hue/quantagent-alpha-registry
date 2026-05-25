@@ -277,6 +277,27 @@ class AgentOrchestrator:
             "qtmrlA2C": a2c_decision.to_dict(),
         }
 
+        a2c_dict = a2c_decision.to_dict()
+
+        # ---- 主动探索提示（AlphaQuanter RL 动态 API 调用中心）----
+        exploration_hints: dict[str, Any] | None = None
+        if a2c_decision.explorationNeeded:
+            missing_factors = [
+                fid for fid in ("orderbook_micro", "liquidity_depth", "sentiment")
+                if fid not in state.factor_snapshot
+            ]
+            exploration_hints = {
+                "trigger": "low-a2c-confidence",
+                "confidence": a2c_decision.confidence,
+                "recommendedActions": [
+                    "fetch supplementary order-book micro-structure factors",
+                    "query on-chain sentiment oracle",
+                    "re-evaluate liquidity depth via Byreal RFQ feed",
+                ],
+                "missingFactorColumns": missing_factors,
+                "autoFetchEnabled": True,
+            }
+
         return {
             "schema": "quantagent.multi-agent-context.v2",
             "symbol": state.symbol,
@@ -287,7 +308,9 @@ class AgentOrchestrator:
             "reputationReport": state.reputation_report,
             "riskCriticWarnings": state.risk_warnings,
             "decisionInputs": state.decision_inputs,
-            "qtmrlA2C": a2c_decision.to_dict(),
+            "qtmrlA2C": a2c_dict,
+            # P2-3: AlphaQuanter 主动探索提示
+            "explorationHints": exploration_hints,
             # P1-6: 完整因子引擎快照 — 各下游 Agent 可直接引用
             "factorSnapshot": state.factor_snapshot,
             "factorEngineModelVersion": factor_summary.get("modelVersion"),

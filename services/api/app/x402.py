@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+import httpx
+
 from .config import BLOCKY402_FACILITATOR_URL, X402_MAX_AUTO_PAY_USD, X402_WALLET_ADDRESS
 
 
@@ -107,6 +109,68 @@ class X402Client:
                 else "payment held: expected alpha or max-auto-pay policy did not justify purchase"
             ),
         }
+
+
+    async def submit_to_facilitator(self, payment: dict[str, Any]) -> dict[str, Any]:
+        """将部分签名的支付 payload 提交至 Blocky402 Facilitator 中继网络。
+
+        Facilitator 负责：
+        1. 验证签名
+        2. 代为支付底层 Gas 费用
+        3. 处理不同网络间稳定币兑换
+        4. 在 Mantle/Solana/Base 上完成原子结算
+
+        在未配置 Facilitator 时返回模拟成功结果。
+        """
+        payload = payment.get("payload")
+        if not payload:
+            return {
+                "submitted": False,
+                "mode": "no-payload",
+                "message": "No signed payload to submit — payment was not approved.",
+            }
+
+        if not self.status()["configured"]:
+            return {
+                "submitted": True,
+                "mode": "simulation",
+                "facilitator": None,
+                "payment": payment["payment"],
+                "receipt": f"sim-receipt:{payment['payment']['network']}:{payment['payment']['asset']}:{payment['payment']['amountUsd']}",
+                "message": "x402 Facilitator submission simulated (BLOCKY402_FACILITATOR_URL not configured).",
+            }
+
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.post(
+                    f"{BLOCKY402_FACILITATOR_URL}/pay",
+                    json={
+                        "payload": payload,
+                        "payer": X402_WALLET_ADDRESS,
+                        "payment": payment["payment"],
+                    },
+                    headers={"Content-Type": "application/json"},
+                )
+                resp.raise_for_status()
+                result = resp.json()
+                return {
+                    "submitted": True,
+                    "mode": "live-facilitator",
+                    "facilitator": BLOCKY402_FACILITATOR_URL,
+                    "payment": payment["payment"],
+                    "receipt": result.get("receipt") or result.get("txHash"),
+                    "facilitatorResponse": result,
+                    "message": "x402 payment submitted to Blocky402 Facilitator and confirmed on-chain.",
+                }
+        except Exception as exc:
+            return {
+                "submitted": False,
+                "mode": "facilitator-error",
+                "facilitator": BLOCKY402_FACILITATOR_URL,
+                "payment": payment["payment"],
+                "error": str(exc),
+                "message": "x402 Facilitator submission failed; payment could not be relayed.",
+            }
 
 
 def estimate_alpha_value_usd(alpha_value_bps: float, notional_usd: float) -> float:

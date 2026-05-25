@@ -3,6 +3,7 @@ from __future__ import annotations
 import pandas as pd
 
 from .derivatives import calculate_derivative_factors
+from .mantle_native import calculate_mantle_native_factors
 from .market import calculate_market_factors
 from .onchain import calculate_onchain_factors
 from .standardize import add_forward_returns, clean_factor_matrix, shift_and_standardize_factors
@@ -86,6 +87,7 @@ def build_crypto_factor_matrix(
     out = calculate_market_factors(out, window=market_window)
     out = calculate_derivative_factors(out, window=derivative_window)
     out = calculate_onchain_factors(out, window=onchain_window)
+    out = calculate_mantle_native_factors(out, window=max(1, onchain_window // 15))
     out = shift_and_standardize_factors(
         out,
         z_window=z_window,

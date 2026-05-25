@@ -85,8 +85,30 @@ async def _fetch_with_x402_retry(
                 schema.asset,
                 schema.recipient,
             )
-            if payment["approved"] and payment["payload"]:
-                params = {**params, "x402-payment-proof": payment["payload"]}
+
+            if not payment["approved"] or not payment["payload"]:
+                logger.warning("x402 payment preparation incomplete, breaking retry loop")
+                break
+
+            # Submit signed payment payload to Blocky402 Facilitator for on-chain settlement
+            facilitator_result = await x402.submit_to_facilitator(payment)
+            logger.info(
+                "x402 Facilitator result: submitted=%s mode=%s receipt=%s",
+                facilitator_result.get("submitted"),
+                facilitator_result.get("mode"),
+                facilitator_result.get("receipt"),
+            )
+            if not facilitator_result.get("submitted"):
+                logger.error("x402 Facilitator submission failed: %s", facilitator_result.get("message"))
+                break
+
+            # Use facilitator-provided on-chain receipt as payment proof for retry
+            params = {
+                **params,
+                "x402-payment-proof": payment["payload"],
+                "x402-receipt": facilitator_result.get("receipt", ""),
+            }
+            logger.info("Retrying with x402 on-chain payment proof (facilitator=%s)", facilitator_result.get("mode"))
             # Fall through to next attempt (or exhaust) with payment proof
 
     raise httpx.HTTPStatusError(

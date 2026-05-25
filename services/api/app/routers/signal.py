@@ -22,6 +22,10 @@ from ..erc8004_adapter import ERC8004Adapter
 from ..finpos import (
     compute_finpos_rewards,
 )
+
+# ---- A2C 在线训练器集成 ----
+from ..a2c_adapter import run_a2c_training_step
+from ..config import A2C_TRAINING_ENABLED as A2C_ENABLED_CFG
 from ..reclaim import generate_zktls_proof, get_reclaim_adapter
 from ..reputation import settle_last_signal
 from ..tee import get_tee_attestor
@@ -137,6 +141,19 @@ async def settle(
             )
             settlement["finposRewards"] = finpos_rewards.to_dict()
             settlement["compositeScore"] = finpos_rewards.composite_score
+
+        # ---- A2C 强化学习在线训练 (FinPos 奖励 -> 策略网络更新) ----
+        a2c_result = None
+        if A2C_ENABLED_CFG and finpos_rewards is not None:
+            a2c_result = run_a2c_training_step(
+                symbol=payload.get("symbol", "BTC"),
+                payload=payload,
+                agent=agent,
+                finpos_rewards=finpos_rewards,
+                checkpoint_dir="data",
+            )
+            if a2c_result is not None:
+                settlement["a2cTraining"] = a2c_result
 
         # ---- ATLAS Adaptive-OPRO 动态提示词演化 ----
         opro_result = None

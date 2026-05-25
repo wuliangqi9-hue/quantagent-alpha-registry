@@ -11,6 +11,7 @@ import {
   PriceChart,
   RegimeStrategy,
   RiskBenchmark,
+  SkeletonGrid,
   StatusBar,
 } from "./components";
 import { useAnalysis } from "./hooks/useAnalysis";
@@ -59,7 +60,9 @@ export default function App() {
 
       {!data && !loading && <EmptyState />}
 
-      {data && (
+      {loading && <SkeletonGrid />}
+
+      {data && !loading && (
         <div className="grid">
           <DecisionSummary
             data={data}

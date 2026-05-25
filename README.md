@@ -9,48 +9,67 @@ pinned: false
 
 # QuantAgent Alpha Registry
 
-QuantAgent Alpha Registry is an ERC-8004-compatible Mantle trading-agent
-prototype. It turns factor research into a verifiable decision trail:
+QuantAgent Alpha Registry 是一个面向 Mantle 图灵测试黑客松（The Turing Test
+Hackathon 2026）的 ERC-8004 兼容型 AI 量化交易 Agent 原型系统。它将前沿学术研究
+（FinPos、QTMRL、ATLAS、AlphaQuanter）与 Web3 密码学基础设施（zkTLS、TEE、x402）
+深度融合，构建了从因子研究到链上可验证决策的完整闭环：
 
 ```text
-market data -> factor summary -> FinPos/QTMRL policy -> Byreal route decision
--> ProofBundle -> Mantle signal anchor -> settlement -> reputation feedback
+market data → factor summary → FinPos/QTMRL policy → Byreal route decision
+→ ProofBundle → Mantle signal anchor → settlement → reputation feedback
+        ↑ zkTLS provenance   ↑ TEE attestation   ↑ x402 payment
 ```
 
-The project is built for the Mantle Turing Test / DoraHacks judging context:
-transparent agent identity, auditable decision hashes, explicit execution
-routing, and clear demo/live boundaries.
+**核心赛道**: AI Trading & Strategy / Agentic Wallets & Economy / AI Alpha & Data
 
-## What Is Implemented
+**技术亮点**:
+- 🔬 **FinPos 双智能体仓位感知架构** — 方向决策 + 数量风险决策，多时间尺度复合奖励
+- 🧠 **QTMRL/A2C 强化学习策略** — Actor-Critic 网络替代静态权重，自适应市场演化
+- 🎯 **ATLAS Adaptive-OPRO** — 基于性能反馈的提示词自动进化管道
+- 🛡️ **ERC-8004 去信任代理协议全栈集成** — Identity / Reputation / Validation 三大注册表
+- 🔐 **Reclaim Protocol zkTLS** — 零知识数据溯源，消除 Web2 API 信任断层
+- 🔒 **Phala Network TEE** — 硬件级隐私保护，策略 IP 军事级加密
+- ⛽ **Mantle 原生 Gas 动态估算** — L2 排序器收入、DEX 流动性、MNT 质押收益因子
+- 💰 **x402 机器支付协议** — 智能体自主获取付费数据，M2M 微支付闭环
+- ⚡ **Byreal/RealClaw RFQ 执行引擎** — 零滑点、零 MEV 攻击的链下询价路由
 
-- **FastAPI orchestration** under `services/api/`
-  - `/api/analyze` builds factor summaries, policy decisions, execution routes, and ProofBundles.
-  - `/api/record-signal` anchors the latest decision through the configured Mantle proof path or a labeled demo path.
-  - `/api/settle` computes PnL, writes memory, emits TEE/zkTLS proof fields, and builds ERC-8004-compatible feedback.
-  - `/api/agent/card` serves a deterministic Agent Registration File with `services`, `x402Support`, `registrations`, and `supportedTrust`.
+## 已实现功能
 
-- **React dashboard** under `apps/web/`
-  - Agent Passport with ERC-8004 registry path, identity status, validation status, reputation, and memory.
-  - Factor, regime, QTMRL policy, benchmark, route decision, x402 audit, and ProofBundle panels.
+### 算法层 — 前沿多智能体决策
+| 模块 | 学术来源 | 工程落点 |
+|------|---------|---------|
+| **FinPos 双智能体架构** | Position-Aware Trading Agent (2025) | `strategy-selector/finpos.py` — DirectionDecisionAgent + QuantityRiskDecisionAgent |
+| **多时间尺度奖励** | FinPos Multi-timescale Rewards | `strategy-selector/finpos_rewards.py` — 即时/短期/中期窗口 + 复合得分 |
+| **QTMRL/A2C 策略引擎** | QTMRL + AlphaQuanter (2025) | `agent-orchestrator/qtmrl.py` — Actor-Critic 网络 + 主动探索触发 |
+| **ATLAS Adaptive-OPRO** | Adaptive Trading with LLM Agents (2025) | `services/api/app/atlas_opro.py` — 性能驱动的提示词变异与筛选 |
+| **FinMem 情节记忆** | Financial Memory (2024) | `agent-memory/store.py` — JSONL 存储 + 新近度/PnL 影响力检索 |
+| **多智能体编排中枢** | QuantAgent Multi-Agent | `agent-orchestrator/graph.py` — Indicator/Flow/Memory/Reputation/RiskCritic |
 
-- **Strategy stack** under `packages/`
-  - Factor engine for market, derivative, and on-chain-compatible factor summaries.
-  - FinPos-style direction and position sizing.
-  - QTMRL/A2C-inspired policy scoring via `policy_blender.py`.
-  - FinMem-inspired settlement memory.
-  - QuantAgent-style multi-agent context with indicator, flow, memory, reputation, and risk critic reports.
+### 执行层 — 防夹击与零滑点
+| 模块 | 说明 |
+|------|------|
+| **Byreal/RealClaw RFQ 路由** | 链下询价引擎，零价格影响、零 MEV 攻击，`services/api/app/byreal.py` |
+| **Mantle 原生因子** | DEX 流动性、MNT 质押收益率、L2 排序器收入，`factor-engine/crypto_factors/mantle_native.py` |
+| **Gas 费动态估算** | Mantle L2 实时 Gas 费，`services/api/app/gas_estimator.py` |
 
-- **Trust and execution adapters**
-  - ERC-8004-compatible Agent Card and adapter boundary.
-  - Canonical ProofBundle hash tying decision report, data proof, route decision, TEE, zkTLS, and settlement.
-  - Byreal/RealClaw quote -> route -> receipt abstraction with simulation fallback.
-  - Reclaim zkTLS and Phala TEE adapters with deterministic fallback fields.
-  - x402 payment policy audit with expected alpha vs data cost.
+### 协议层 — ERC-8004 去信任代理
+| 注册表 | 合约 | 说明 |
+|------|------|------|
+| **Identity Registry** | `ERC8004AgentCard.sol` | Agent NFT 铸造 + Agent Card URI 注册 |
+| **Reputation Registry** | `SignalRegistry.sol` | 结构化声誉反馈（score + tags + feedbackUri） |
+| **Validation Registry** | `QuantAgentExecutor.sol` | zk-proof gate + TEE attestation 验证入口 |
 
-- **Contracts**
-  - `SignalRegistry.sol`: project fallback registry for identity-inspired signal anchoring and reputation feedback.
-  - `QuantAgentExecutor.sol`: Reclaim-compatible proof gate shape for live zkTLS verification.
-  - `ERC8004AgentCard.sol`: on-chain metadata helper for Agent Card experiments.
+### 密码学层 — 数据溯源与隐私计算
+| 技术 | 集成文件 | 说明 |
+|------|---------|------|
+| **Reclaim zkTLS** | `services/api/app/reclaim.py` | 零知识证明数据来源真实性 |
+| **Phala TEE** | `services/api/app/tee.py` | Intel SGX/AMD SEV 硬件级策略隐私 |
+| **x402 机器支付** | `services/api/app/x402.py` | HTTP 402 协议 + Blocky402 Facilitator |
+
+### 前端看板
+- `apps/web/` — React + TypeScript 仪表板
+- Agent Passport / Factor Charts / Regime Strategy / Risk Benchmark / Mantle Proof / Multi-Agent Panel
+- 骨架屏加载 (SkeletonPanel) / Gas 费实时显示 / Mantle Explorer 链接跳转 / 响应式布局
 
 ## Demo And Live Modes
 
@@ -195,13 +214,18 @@ docs/                        Deployment, proof, and judging notes
 submissions/dorahacks/       Submission materials
 ```
 
-## Current Submission Gap
+## 提交检查清单 Submission Checklist
 
-The codebase is ready for a public demo and live integration configuration, but
-the final judged submission should still add:
-
-- public app URL;
-- deployed Mantle contract or official ERC-8004 registry transaction;
-- registered Agent Card URI and `agentId`;
-- at least one real Mantle explorer transaction;
-- demo video and final DoraHacks submission links.
+| # | 项目 | 状态 | 说明 |
+|---|------|------|------|
+| D-1 | 应用公开部署 | ⬜ | Render / HuggingFace Spaces 部署 |
+| D-2 | Mantle 测试网合约部署 | ⬜ | 部署 SignalRegistry + QuantAgentExecutor + ERC8004AgentCard |
+| D-3 | ERC-8004 Agent 身份注册 | ⬜ | 铸造 Agent NFT，设置 Agent Card URI |
+| D-4 | `.env` 环境变量配置 | ⬜ | 配置 RPC / 私钥 / 注册表地址 |
+| D-5 | 真实链上信号交易 + 声誉反馈 | ⬜ | 至少一笔 Mantle Explorer 可查交易 |
+| D-6 | 2-3 分钟英文演示视频 | ⬜ | 录制完整 demo flow |
+| C-1 | Mantle 原生因子 | ✅ | DEX 流动性 / MNT 质押 / L2 排序器收入因子 |
+| C-2 | Gas 费动态估算 | ✅ | Mantle L2 实时 Gas 费 API |
+| C-3 | 前端 Explorer 链接 | ✅ | txHash → explorer URL 自动跳转 |
+| C-4 | 前端生产化打磨 | ✅ | 骨架屏 / 响应式 / Chunk 优化 |
+| C-5 | README + 提交材料 | ✅ | 本文档 |
