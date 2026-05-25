@@ -2,8 +2,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { Analysis, ChainResult, FinposRewards, OproAdaptation, Settlement, TeeAttestation, ZktlsProof } from "../types";
 
-const MANTLE_EXPLORER = "https://explorer.mantle.xyz";
-
 const shortHash = (value: string | null | undefined): string =>
   value ? `${value.slice(0, 10)}…${value.slice(-8)}` : "Not configured";
 
@@ -64,7 +62,7 @@ const TeeAttestationRow = ({ tee }: { tee?: TeeAttestation }) => {
             animate={{ opacity: [1, 0.5, 1] }}
             transition={{ duration: 2, repeat: Infinity }}
           >
-            ✅ Attestation verified
+            Attestation verified
           </motion.span>
         ) : (
           "Attestation pending"
@@ -94,7 +92,7 @@ const ZktlsProofRow = ({ proof }: { proof?: ZktlsProof }) => {
             animate={{ opacity: [1, 0.5, 1] }}
             transition={{ duration: 2, repeat: Infinity }}
           >
-            ✅ Zero‑knowledge proof verified
+            Zero-knowledge proof verified
           </motion.span>
         ) : (
           "ZK proof pending"
@@ -193,9 +191,9 @@ export function MantleProofPanel({
   }, [walletConnected, signMessage, data.signalHash, data.modelVersion, data.reportSchema]);
 
   const explorerUrl = chain?.txHash
-    ? `${MANTLE_EXPLORER}/tx/${chain.txHash}`
+    ? `${data.explorerBase || "https://explorer.mantle.xyz"}/tx/${chain.txHash}`
     : settlementChain?.txHash
-      ? `${MANTLE_EXPLORER}/tx/${settlementChain.txHash}`
+      ? `${data.explorerBase || "https://explorer.mantle.xyz"}/tx/${settlementChain.txHash}`
       : null;
 
   return (
@@ -320,7 +318,6 @@ export function MantleProofPanel({
       {/* Explorer links */}
       {explorerUrl && (
         <p style={{ marginTop: 12 }}>
-          🔗{" "}
           <a href={explorerUrl} target="_blank" rel="noreferrer" style={{ color: "var(--accent)" }}>
             View on Mantle Explorer
           </a>
@@ -392,7 +389,7 @@ export function MantleProofPanel({
           onClick={handleSign}
           disabled={!walletConnected || signing}
         >
-          {signing ? "Signing…" : signature ? "✍ Re-sign attestation" : "✍ Sign attestation"}
+          {signing ? "Signing…" : signature ? "Re-sign attestation" : "Sign attestation"}
         </button>
         {signature && (
           <div className="hash" style={{ marginTop: 6, fontSize: "0.65rem" }}>

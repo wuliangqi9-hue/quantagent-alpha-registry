@@ -90,10 +90,8 @@ Computes chart-ready crypto factor summaries. Current factors include:
 - trend;
 - volume pressure;
 - funding;
-- open interest.
-
-The next high-value extension is Mantle-native factors: gas congestion, DEX
-liquidity shock, smart-money flow, and slippage pressure.
+- open interest;
+- Mantle-native gas, DEX liquidity, bridge flow, and staking yield proxies.
 
 ## `packages/strategy-selector`
 
@@ -122,6 +120,8 @@ Persistent settlement memory inspired by FinMem.
 - `store.py` keeps JSONL records and retrieves similar prior settlements by
   recency, importance, factor similarity, and PnL impact.
 - `atlas_opro.py` tracks prompt variants and updates their performance after settlement.
+- The original FinMem work is treated as design provenance only. The repo no
+  longer vendors third-party paper source snapshots.
 
 Runtime memory files are generated under `data/` unless `MEMORY_STORE_PATH` and
 `ATLAS_OPRO_STORE_PATH` are overridden. They are not required in git.
@@ -179,11 +179,11 @@ Safe to remove:
 - `apps/web/dist/`;
 - `contracts/cache/`;
 - runtime `data/agent_memory.jsonl` and `data/atlas_opro.jsonl`.
+- vendored paper source snapshots or local-only experiment notes.
 
 Do not remove unless intentionally resetting the local environment:
 
 - `apps/web/node_modules/`;
 - `contracts/node_modules/`;
 - `services/api/.venv/`;
-- `data/sample/`;
-- `references/papers/`.
+- `data/sample/`.

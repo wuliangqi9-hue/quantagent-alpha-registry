@@ -7,9 +7,8 @@ This module is intentionally small:
 - JSONL memory store for hackathon-safe deployment;
 - recency, importance, similarity, and PnL-impact scoring;
 - retrieval output that can be passed into the strategy selector;
-- no dependency on the vendored FinMem reference code.
+- no runtime dependency on vendored paper source code.
 
-Reference source snapshot:
-
-- `references/papers/finmem/puppy/memorydb.py`
-- `references/papers/finmem/puppy/memory_functions/`
+The original FinMem project is used as design provenance. This repository keeps
+only the production adaptation needed for the Mantle demo and does not vendor
+third-party research snapshots.

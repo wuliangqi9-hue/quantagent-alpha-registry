@@ -13,7 +13,8 @@ are excluded.
 - `cache/`;
 - large build-info artifacts;
 - Hardhat debug artifacts (`*.dbg.json`);
-- logs or PID files.
+- logs or PID files;
+- vendored paper/source snapshots that are not imported by runtime code.
 
 ## Can Commit
 

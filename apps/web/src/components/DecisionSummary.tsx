@@ -32,6 +32,7 @@ export function DecisionSummary({ data, chain, settlement, latestPrice }: Props)
   const proof = proofState(data, chain);
   const signal = selection.signalDirection.toUpperCase();
   const pnlClass = settlement?.pnlBps == null ? "" : settlement.pnlBps >= 0 ? "positive" : "negative";
+  const riskWarnings = selection.riskWarnings?.length ?? 0;
 
   return (
     <section className="decision-summary span-12" aria-label="Decision summary">
@@ -39,6 +40,11 @@ export function DecisionSummary({ data, chain, settlement, latestPrice }: Props)
         <span className="section-kicker">Decision workspace</span>
         <h2>{data.symbol} · {signal}</h2>
         <p>{selection.explanation}</p>
+        <div className="decision-meta">
+          <span>{selection.marketRegime}</span>
+          <span>{selection.strategyName}</span>
+          <span>{riskWarnings ? `${riskWarnings} risk flags` : "No critical risk flags"}</span>
+        </div>
       </div>
       <div className="summary-metrics">
         <div className="summary-cell primary">
@@ -61,7 +67,7 @@ export function DecisionSummary({ data, chain, settlement, latestPrice }: Props)
         <div className="summary-cell">
           <span>Proof</span>
           <strong>{proof}</strong>
-          <small>{data.proofBundle?.proofBundleHash ? "Bundle anchored" : data.proofMode}</small>
+          <small>{data.proofBundle?.proofBundleHash ? "Bundle prepared" : data.proofMode}</small>
         </div>
         <div className="summary-cell">
           <span>Latest close</span>
@@ -75,10 +81,10 @@ export function DecisionSummary({ data, chain, settlement, latestPrice }: Props)
         </div>
       </div>
       <div className="decision-pipeline" aria-label="Decision pipeline">
-        <span>Market State</span>
-        <span>Policy Decision</span>
-        <span>Execution Route</span>
-        <span>Proof Bundle</span>
+        <span><b>01</b> Market state</span>
+        <span><b>02</b> Policy decision</span>
+        <span><b>03</b> Execution route</span>
+        <span><b>04</b> Proof bundle</span>
       </div>
     </section>
   );

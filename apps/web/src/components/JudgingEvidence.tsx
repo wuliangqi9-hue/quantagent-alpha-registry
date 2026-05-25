@@ -165,15 +165,16 @@ export function JudgingEvidence({ data, chain, settlement }: Props) {
 
   return (
     <section className="judge-evidence span-12" aria-label="Hackathon judging evidence">
-      <div className="section-head">
+      <div className="section-head section-head--inline">
         <span className="section-kicker">Hackathon evidence</span>
-        <h2>Innovation Stack & Award Fit</h2>
+        <h2>Judge-Ready Evidence Map</h2>
         <p>
-          The dashboard maps each research claim to visible proof, routing, autonomy, and Mantle readiness signals.
+          A compact map of scoring criteria, innovation claims, and track fit. The detailed proof and route panels below
+          show the inspectable source of each claim.
         </p>
       </div>
 
-      <div className="score-grid">
+      <div className="score-grid evidence-strip">
         {pillars.map((item) => (
           <article className="evidence-card" key={item.label}>
             <div className="card-topline">
@@ -187,7 +188,9 @@ export function JudgingEvidence({ data, chain, settlement }: Props) {
         ))}
       </div>
 
-      <div className="innovation-grid">
+      <details className="evidence-details">
+        <summary>Show full innovation and track evidence</summary>
+        <div className="innovation-grid">
         {innovations.map((item) => (
           <article className="innovation-card" key={item.label}>
             <div>
@@ -198,9 +201,9 @@ export function JudgingEvidence({ data, chain, settlement }: Props) {
             <code>{item.evidence}</code>
           </article>
         ))}
-      </div>
+        </div>
 
-      <div className="track-grid">
+        <div className="track-grid">
         {tracks.map((item) => (
           <article className="track-card" key={item.label}>
             <div className="card-topline">
@@ -211,7 +214,8 @@ export function JudgingEvidence({ data, chain, settlement }: Props) {
             <code>{item.evidence}</code>
           </article>
         ))}
-      </div>
+        </div>
+      </details>
     </section>
   );
 }

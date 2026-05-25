@@ -17,14 +17,14 @@ export function StatusBar({ data, chain, latestPrice }: Props) {
   return (
     <div className="status-row">
       <span className={`badge ${data.mode === "live" ? "live" : "offline"}`}>
-        Data mode: {data.mode}
+        {data.mode}
       </span>
       <span className={`badge ${chain?.recorded ? "live" : "offline"}`}>
-        Proof: {proofLabel(chain, Boolean(data.contractAddress))}
+        {proofLabel(chain, Boolean(data.contractAddress))}
       </span>
-      <span className="badge">Asset: {data.symbol}</span>
+      <span className="badge">{data.symbol}</span>
       {latestPrice != null && (
-        <span className="badge">Latest close: {latestPrice.toLocaleString()}</span>
+        <span className="badge">{latestPrice.toLocaleString()}</span>
       )}
     </div>
   );

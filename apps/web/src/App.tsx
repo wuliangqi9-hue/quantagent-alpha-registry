@@ -101,8 +101,6 @@ export default function App() {
             settlement={settlement}
           />
 
-          <RegimeStrategy selection={data.selection} />
-
           <ExecutionPanel data={data} />
 
           <MantleProofPanel
@@ -113,6 +111,8 @@ export default function App() {
             walletConnected={wallet.connected}
             signMessage={wallet.signMessage}
           />
+
+          <RegimeStrategy selection={data.selection} />
 
           <AgentPassport data={data} chain={chain} settlement={settlement} />
 

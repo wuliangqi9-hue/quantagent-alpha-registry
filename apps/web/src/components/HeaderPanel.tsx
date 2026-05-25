@@ -48,18 +48,24 @@ export function HeaderPanel({
   return (
     <header className="header">
       <div className="title">
-        <div className="eyebrow">Mantle Turing Test · Proof-aware trading</div>
+        <div className="eyebrow">Mantle Turing Test · Agentic Trading Workspace</div>
         <h1>QuantAgent Alpha Registry</h1>
         <p>
-          Factor research, route selection, proof bundles, and ERC-8004 reputation feedback
-          presented as one calm, auditable decision workspace.
+          A position-aware AI trading cockpit that turns market factors into an inspectable route,
+          proof bundle, and reputation feedback loop.
         </p>
+        <div className="hero-badges" aria-label="Core capabilities">
+          <span>FinPos + QTMRL</span>
+          <span>ERC-8004</span>
+          <span>zkTLS / TEE</span>
+          <span>Byreal-ready</span>
+        </div>
       </div>
       <div className="controls">
         {/* Wallet section */}
         <div className="wallet-row">
           {!wallet.connected ? (
-            <button className="wallet-btn" onClick={onConnectWallet}>
+            <button className="wallet-btn connect-btn" onClick={onConnectWallet}>
               Connect Wallet
             </button>
           ) : (
@@ -91,7 +97,7 @@ export function HeaderPanel({
             <option value="live">Live</option>
             <option value="offline-demo">Offline demo</option>
           </select>
-          <button onClick={onAnalyze} disabled={loading}>
+          <button className="primary-action" onClick={onAnalyze} disabled={loading}>
             {loading ? "Analyzing…" : "Analyze"}
           </button>
           <button className="secondary" onClick={onRecord} disabled={!hasData || recording || !wallet.connected}>

@@ -26,3 +26,5 @@ apps/web/dist/
 *.pid
 .DS_Store
 Thumbs.db
+references/
+experiments/
