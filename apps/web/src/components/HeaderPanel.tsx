@@ -48,17 +48,17 @@ export function HeaderPanel({
   return (
     <header className="header">
       <div className="title">
-        <div className="eyebrow">Mantle Turing Test · Agentic Trading Workspace</div>
+        <div className="eyebrow">Mantle Turing Test · Autonomous Alpha Desk</div>
         <h1>QuantAgent Alpha Registry</h1>
         <p>
-          A position-aware AI trading cockpit that turns market factors into an inspectable route,
-          proof bundle, and reputation feedback loop.
+          A calm command room for AI trading decisions: factor research, position sizing,
+          execution routing, and cryptographic accountability in one verifiable flow.
         </p>
         <div className="hero-badges" aria-label="Core capabilities">
-          <span>FinPos + QTMRL</span>
-          <span>ERC-8004</span>
-          <span>zkTLS / TEE</span>
-          <span>Byreal-ready</span>
+          <span>Position-aware policy</span>
+          <span>ERC-8004 identity</span>
+          <span>zkTLS / TEE proofs</span>
+          <span>Byreal route layer</span>
         </div>
       </div>
       <div className="controls">
@@ -66,7 +66,7 @@ export function HeaderPanel({
         <div className="wallet-row">
           {!wallet.connected ? (
             <button className="wallet-btn connect-btn" onClick={onConnectWallet}>
-              Connect Wallet
+              Connect wallet
             </button>
           ) : (
             <div className="wallet-info">
@@ -98,13 +98,13 @@ export function HeaderPanel({
             <option value="offline-demo">Offline demo</option>
           </select>
           <button className="primary-action" onClick={onAnalyze} disabled={loading}>
-            {loading ? "Analyzing…" : "Analyze"}
+            {loading ? "Composing…" : "Run analysis"}
           </button>
           <button className="secondary" onClick={onRecord} disabled={!hasData || recording || !wallet.connected}>
-            {recording ? "Recording…" : "Record on Mantle"}
+            {recording ? "Recording…" : "Record signal"}
           </button>
           <button className="secondary" onClick={onSettle} disabled={!hasData || settling || !wallet.connected}>
-            {settling ? "Settling…" : "Settle Reputation"}
+            {settling ? "Settling…" : "Settle reputation"}
           </button>
         </div>
       </div>

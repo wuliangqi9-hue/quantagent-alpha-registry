@@ -18,7 +18,7 @@ function ConfRing({
   const r = (size - stroke) / 2;
   const circumference = 2 * Math.PI * r;
   const offset = circumference * (1 - value);
-  const color = value >= 0.7 ? "#00e676" : value >= 0.4 ? "#ffd740" : "#ff5252";
+  const color = value >= 0.7 ? "#b7d7b8" : value >= 0.4 ? "#dbc58b" : "#df9a9a";
 
   return (
     <div className="conf-ring-container" style={{ width: size, height: size }}>
@@ -29,7 +29,7 @@ function ConfRing({
           cy={size / 2}
           r={r}
           fill="none"
-          stroke="rgba(255,255,255,0.08)"
+          stroke="rgba(244, 241, 234, 0.08)"
           strokeWidth={stroke}
         />
         {/* Foreground ring */}
@@ -69,19 +69,19 @@ function RadarScan() {
     <div className="radar-container">
       <svg viewBox="0 0 120 120" className="radar-svg">
         {/* Concentric rings */}
-        <circle cx="60" cy="60" r="50" fill="none" stroke="rgba(0,229,255,0.1)" strokeWidth="1" />
-        <circle cx="60" cy="60" r="35" fill="none" stroke="rgba(0,229,255,0.08)" strokeWidth="0.8" />
-        <circle cx="60" cy="60" r="20" fill="none" stroke="rgba(0,229,255,0.06)" strokeWidth="0.6" />
+        <circle cx="60" cy="60" r="50" fill="none" stroke="rgba(199,215,232,0.12)" strokeWidth="1" />
+        <circle cx="60" cy="60" r="35" fill="none" stroke="rgba(199,215,232,0.09)" strokeWidth="0.8" />
+        <circle cx="60" cy="60" r="20" fill="none" stroke="rgba(199,215,232,0.07)" strokeWidth="0.6" />
         {/* Crosshairs */}
-        <line x1="60" y1="10" x2="60" y2="110" stroke="rgba(0,229,255,0.12)" strokeWidth="0.5" />
-        <line x1="10" y1="60" x2="110" y2="60" stroke="rgba(0,229,255,0.12)" strokeWidth="0.5" />
+        <line x1="60" y1="10" x2="60" y2="110" stroke="rgba(199,215,232,0.12)" strokeWidth="0.5" />
+        <line x1="10" y1="60" x2="110" y2="60" stroke="rgba(199,215,232,0.12)" strokeWidth="0.5" />
         {/* Sweep line */}
         <motion.line
           x1="60"
           y1="60"
           x2="110"
           y2="60"
-          stroke="rgba(0,229,255,0.4)"
+          stroke="rgba(199,215,232,0.42)"
           strokeWidth="1.5"
           animate={{ rotate: [0, 360] }}
           transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
@@ -92,7 +92,7 @@ function RadarScan() {
           cx="85"
           cy="40"
           r="2.5"
-          fill="#00e5ff"
+          fill="#c7d7e8"
           animate={{ opacity: [0.3, 1, 0.3] }}
           transition={{ duration: 1.8, repeat: Infinity, delay: 0 }}
         />
@@ -100,7 +100,7 @@ function RadarScan() {
           cx="35"
           cy="75"
           r="2"
-          fill="#ff9100"
+          fill="#dbc58b"
           animate={{ opacity: [0.3, 1, 0.3] }}
           transition={{ duration: 2.2, repeat: Infinity, delay: 0.5 }}
         />
@@ -108,7 +108,7 @@ function RadarScan() {
           cx="70"
           cy="80"
           r="3"
-          fill="#e040fb"
+          fill="#c8b8d8"
           animate={{ opacity: [0.3, 1, 0.3] }}
           transition={{ duration: 2.5, repeat: Infinity, delay: 1 }}
         />
@@ -120,7 +120,7 @@ function RadarScan() {
 function SignalBar({ value, label }: { value: number; label: string }) {
   const bars = 5;
   const level = Math.min(Math.ceil(value * bars), bars);
-  const color = value >= 0.7 ? "var(--accent)" : value >= 0.4 ? "#ffd740" : "var(--danger)";
+  const color = value >= 0.7 ? "var(--green)" : value >= 0.4 ? "var(--amber)" : "var(--danger)";
 
   return (
     <div className="signal-bar-row">
@@ -134,7 +134,7 @@ function SignalBar({ value, label }: { value: number; label: string }) {
             animate={{ height: i < level ? 8 + i * 4 : 2 }}
             transition={{ duration: 0.5, delay: i * 0.1 }}
             style={{
-              backgroundColor: i < level ? color : "rgba(255,255,255,0.08)",
+              backgroundColor: i < level ? color : "rgba(244, 241, 234, 0.08)",
             }}
           />
         ))}
@@ -152,7 +152,7 @@ export function RegimeStrategy({ selection }: Props) {
   const position = selection.positionPlan;
 
   return (
-    <section className="panel span-6">
+    <section className="panel span-6 regime-panel">
       <span className="section-kicker">Strategy</span>
       <h2>Market Regime & Route</h2>
 
@@ -160,7 +160,7 @@ export function RegimeStrategy({ selection }: Props) {
         {/* Left: confidence ring + radar */}
         <div className="regime-visual">
           <ConfRing value={selection.confidence} />
-          <div style={{ marginTop: 8, textAlign: "center" }}>
+          <div className="confidence-caption">
             <span className="note">Confidence</span>
           </div>
           <RadarScan />
@@ -233,8 +233,8 @@ export function RegimeStrategy({ selection }: Props) {
 
       {/* Drivers & Warnings */}
       {drivers.length > 0 && (
-        <div style={{ marginTop: 16 }}>
-          <h3 style={{ fontSize: "0.85rem", textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)" }}>
+        <div className="strategy-section">
+          <h3 className="strategy-section-title">
             Top Drivers
           </h3>
           <div className="tag-list">
@@ -254,8 +254,8 @@ export function RegimeStrategy({ selection }: Props) {
       )}
 
       {warnings.length > 0 && (
-        <div style={{ marginTop: 12 }}>
-          <h3 style={{ fontSize: "0.85rem", textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--danger)" }}>
+        <div className="strategy-section strategy-section--tight">
+          <h3 className="strategy-section-title strategy-section-title--danger">
             Risk Warnings
           </h3>
           <ul className="warning-list">
@@ -266,7 +266,7 @@ export function RegimeStrategy({ selection }: Props) {
         </div>
       )}
 
-      <div style={{ marginTop: 12 }}>
+      <div className="strategy-section strategy-section--tight">
         <p className="note">{selection.explanation}</p>
       </div>
     </section>

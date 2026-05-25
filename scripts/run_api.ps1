@@ -12,5 +12,5 @@ if (-not (Test-Path ".venv")) {
 }
 $venvPython = ".\.venv\Scripts\python.exe"
 & $venvPython -m pip install -q -r requirements.txt
-$env:PYTHONPATH = "$root\packages\factor-engine;$root\packages\strategy-selector"
-& $venvPython -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+$env:PYTHONPATH = "$root;$root\packages\factor-engine;$root\packages\strategy-selector;$root\packages\agent-memory;$root\packages\agent-orchestrator"
+& $venvPython -m uvicorn services.api.app.main:app --reload --host 0.0.0.0 --port 8000

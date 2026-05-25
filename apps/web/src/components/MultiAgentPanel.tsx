@@ -73,7 +73,7 @@ export function MultiAgentPanel({
   return (
     <section className="panel span-12">
       <span className="section-kicker">Collaborative reasoning</span>
-      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+      <div className="panel-heading-row">
         <h2>Multi-Agent Research Loop</h2>
         {isAnalyzing && (
           <motion.span
@@ -100,7 +100,7 @@ export function MultiAgentPanel({
                 transition={{ duration: 0.35, ease: "easeOut" }}
                 style={{ borderLeftColor: slot.color }}
               >
-                <span style={{ color: slot.color, fontWeight: 700, fontSize: "0.8rem", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                <span className="agent-slot-label" style={{ color: slot.color }}>
                   {slot.label}
                 </span>
                 <p>
@@ -131,7 +131,7 @@ export function MultiAgentPanel({
           transition={{ duration: 0.5, delay: 0.3 }}
         >
           <div className="atlas-header">
-            <span style={{ color: AGENT_COLORS.ATLAS, fontWeight: 700 }}>⚡ ATLAS Adaptive-OPRO</span>
+            <span className="atlas-title">ATLAS Adaptive-OPRO</span>
             <span className="atlas-iter">Iteration #{oproAdaptation.iteration}</span>
           </div>
           <div className="atlas-mutations">
@@ -141,11 +141,7 @@ export function MultiAgentPanel({
           </div>
           <div className="metric">
             <span>Performance Δ</span>
-            <strong
-              style={{
-                color: oproAdaptation.performanceDelta >= 0 ? "var(--accent)" : "var(--danger)",
-              }}
-            >
+            <strong className={oproAdaptation.performanceDelta >= 0 ? "metric-positive" : "metric-negative"}>
               {oproAdaptation.performanceDelta > 0 ? "+" : ""}
               {oproAdaptation.performanceDelta.toFixed(4)}
             </strong>

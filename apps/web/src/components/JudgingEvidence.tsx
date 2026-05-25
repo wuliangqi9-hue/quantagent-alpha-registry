@@ -166,11 +166,11 @@ export function JudgingEvidence({ data, chain, settlement }: Props) {
   return (
     <section className="judge-evidence span-12" aria-label="Hackathon judging evidence">
       <div className="section-head section-head--inline">
-        <span className="section-kicker">Hackathon evidence</span>
-        <h2>Judge-Ready Evidence Map</h2>
+        <span className="section-kicker">Submission narrative</span>
+        <h2>Evidence, without the noise</h2>
         <p>
-          A compact map of scoring criteria, innovation claims, and track fit. The detailed proof and route panels below
-          show the inspectable source of each claim.
+          A compact translation layer between what the product does and how the jury scores it.
+          Each claim points back to a visible route, proof, or agent-state surface.
         </p>
       </div>
 
@@ -189,7 +189,7 @@ export function JudgingEvidence({ data, chain, settlement }: Props) {
       </div>
 
       <details className="evidence-details">
-        <summary>Show full innovation and track evidence</summary>
+        <summary>Open innovation and track mapping</summary>
         <div className="innovation-grid">
         {innovations.map((item) => (
           <article className="innovation-card" key={item.label}>

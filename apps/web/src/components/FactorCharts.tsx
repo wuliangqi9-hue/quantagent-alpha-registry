@@ -18,17 +18,16 @@ type Props = {
   factors: Factor[];
 };
 
-const chartGrid = "rgba(132, 247, 255, 0.16)";
-const chartMuted = "#a2adbd";
-const chartBlue = "#22d3ee";
-const chartTeal = "#2dd4bf";
-const chartViolet = "#a78bfa";
+const chartGrid = "rgba(244, 241, 234, 0.14)";
+const chartMuted = "#aaa59b";
+const chartBlue = "#b9cde6";
+const chartTeal = "#9dd8cd";
 const tooltipStyle = {
-  background: "rgba(8, 12, 22, 0.96)",
-  border: "1px solid rgba(132, 247, 255, 0.18)",
+  background: "rgba(18, 19, 22, 0.96)",
+  border: "1px solid rgba(244, 241, 234, 0.14)",
   borderRadius: 8,
   boxShadow: "0 16px 36px rgba(0, 0, 0, 0.36)",
-  color: "#f5f7fb",
+  color: "#f4f1ea",
 } as const;
 
 export function FactorCharts({ factors }: Props) {
@@ -41,7 +40,7 @@ export function FactorCharts({ factors }: Props) {
     }));
 
   return (
-    <section className="panel span-5">
+    <section className="panel span-5 factor-panel">
       <span className="section-kicker">Mantle-native factors</span>
       <h2>Factor Summary</h2>
       <ResponsiveContainer width="100%" height={280}>
@@ -57,7 +56,7 @@ export function FactorCharts({ factors }: Props) {
           <CartesianGrid strokeDasharray="3 3" stroke={chartGrid} />
           <XAxis dataKey="factor" tick={{ fill: chartMuted, fontSize: 10 }} />
           <YAxis domain={[-3, 3]} tick={{ fill: chartMuted }} />
-          <Tooltip contentStyle={tooltipStyle} cursor={{ fill: "rgba(0, 113, 227, 0.06)" }} />
+          <Tooltip contentStyle={tooltipStyle} cursor={{ fill: "rgba(199, 215, 232, 0.06)" }} />
           <Bar dataKey="score" radius={[6, 6, 0, 0]}>
             {chartData.map((entry) => (
               <Cell key={entry.factor} fill={entry.mantleNative ? chartTeal : chartBlue} />

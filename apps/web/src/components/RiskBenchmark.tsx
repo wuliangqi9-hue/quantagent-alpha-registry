@@ -10,17 +10,17 @@ const formatBps = (bps: number): string => {
   return bps >= 0 ? `+${pct}%` : `${pct}%`;
 };
 
-const scoreColor = (score: number): string => {
-  if (score >= 0.6) return "var(--green, #22c55e)";
-  if (score >= 0.3) return "var(--amber, #f59e0b)";
-  return "var(--red, #ef4444)";
+const scoreTone = (score: number): string => {
+  if (score >= 0.6) return "metric-positive";
+  if (score >= 0.3) return "metric-caution";
+  return "metric-negative";
 };
 
 export function RiskBenchmark({ selection, settlement }: Props) {
   const finpos = settlement?.finposRewards;
 
   return (
-    <section className="panel span-3">
+    <section className="panel span-3 risk-panel">
       <span className="section-kicker">Risk desk</span>
       <h2>Risk</h2>
       <div className="warning-stack">
@@ -49,13 +49,15 @@ export function RiskBenchmark({ selection, settlement }: Props) {
           <h2>FinPos Multi-Timescale</h2>
           <div className="metric">
             <span>Immediate PnL</span>
-            <strong style={{ color: finpos.immediatePnlBps >= 0 ? "var(--green, #22c55e)" : "var(--red, #ef4444)" }}>
+            <strong className={finpos.immediatePnlBps >= 0 ? "metric-positive" : "metric-negative"}>
               {formatBps(finpos.immediatePnlBps)}
             </strong>
           </div>
           <div className="metric">
             <span>Direction Correct</span>
-            <strong>{finpos.directionCorrect ? "✓" : "✗"}</strong>
+            <strong className={finpos.directionCorrect ? "metric-positive" : "metric-negative"}>
+              {finpos.directionCorrect ? "yes" : "no"}
+            </strong>
           </div>
 
           {/* Short Window */}
@@ -83,9 +85,9 @@ export function RiskBenchmark({ selection, settlement }: Props) {
           </div>
 
           {/* Exposure Penalty */}
-          <div className="metric" style={{ marginTop: 8 }}>
+          <div className="metric metric-spaced">
             <span>Exposure Penalty</span>
-            <strong style={{ color: "var(--amber, #f59e0b)" }}>
+            <strong className="metric-caution">
               {finpos.exposurePenaltyBps.toFixed(1)} bps
             </strong>
           </div>
@@ -95,9 +97,7 @@ export function RiskBenchmark({ selection, settlement }: Props) {
             <span>
               FinPos Composite Score
             </span>
-            <strong style={{
-              color: scoreColor(finpos.compositeScore),
-            }}>
+            <strong className={scoreTone(finpos.compositeScore)}>
               {finpos.compositeScore.toFixed(3)}
             </strong>
           </div>

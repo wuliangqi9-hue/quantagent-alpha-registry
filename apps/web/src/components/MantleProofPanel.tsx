@@ -16,15 +16,15 @@ const FinposRewardRow = ({ rewards }: { rewards?: FinposRewards }) => {
   if (!rewards) return null;
   return (
     <>
-      <h2 style={{ marginTop: 16 }}>FinPos Multi‑timescale Rewards</h2>
+      <h2 className="panel-subtitle">FinPos Multi-timescale Rewards</h2>
       <div className="metric">
         <span>Immediate PnL (bps)</span>
         <strong>{rewards.immediatePnlBps.toFixed(2)}</strong>
       </div>
       <div className="metric">
         <span>Direction correct</span>
-        <strong style={{ color: rewards.directionCorrect ? "var(--accent)" : "var(--danger)" }}>
-          {rewards.directionCorrect ? "✓" : "✗"}
+        <strong className={rewards.directionCorrect ? "metric-positive" : "metric-negative"}>
+          {rewards.directionCorrect ? "yes" : "no"}
         </strong>
       </div>
       <div className="metric">
@@ -55,7 +55,7 @@ const TeeAttestationRow = ({ tee }: { tee?: TeeAttestation }) => {
   if (!tee) return null;
   return (
     <>
-      <h2 style={{ marginTop: 16 }}>TEE Attestation</h2>
+      <h2 className="panel-subtitle">TEE Attestation</h2>
       <div className={`proof-state ${tee.verified ? "recorded" : "demo"}`}>
         {tee.verified ? (
           <motion.span
@@ -75,7 +75,7 @@ const TeeAttestationRow = ({ tee }: { tee?: TeeAttestation }) => {
       <div className="hash">{shortHash(tee.attestationHash)}</div>
       <div className="metric">
         <span>Code measurement</span>
-        <strong style={{ fontSize: "0.65rem" }}>{shortHash(tee.codeMeasurement)}</strong>
+        <strong className="metric-small">{shortHash(tee.codeMeasurement)}</strong>
       </div>
     </>
   );
@@ -85,7 +85,7 @@ const ZktlsProofRow = ({ proof }: { proof?: ZktlsProof }) => {
   if (!proof) return null;
   return (
     <>
-      <h2 style={{ marginTop: 16 }}>zkTLS Data Provenance</h2>
+      <h2 className="panel-subtitle">zkTLS Data Provenance</h2>
       <div className={`proof-state ${proof.verified ? "recorded" : "demo"}`}>
         {proof.verified ? (
           <motion.span
@@ -104,7 +104,7 @@ const ZktlsProofRow = ({ proof }: { proof?: ZktlsProof }) => {
       </div>
       <div className="metric">
         <span>Endpoint</span>
-        <strong style={{ fontSize: "0.75rem" }}>{proof.endpoint}</strong>
+        <strong className="metric-small">{proof.endpoint}</strong>
       </div>
       <div className="hash">{shortHash(proof.proofHash)}</div>
     </>
@@ -115,7 +115,7 @@ const OproAdaptationRow = ({ opro }: { opro?: OproAdaptation }) => {
   if (!opro) return null;
   return (
     <>
-      <h2 style={{ marginTop: 16 }}>ATLAS Adaptive‑OPRO</h2>
+      <h2 className="panel-subtitle">ATLAS Adaptive-OPRO</h2>
       <div className="metric">
         <span>Iteration</span>
         <strong>#{opro.iteration}</strong>
@@ -126,7 +126,7 @@ const OproAdaptationRow = ({ opro }: { opro?: OproAdaptation }) => {
       </div>
       <div className="metric">
         <span>Performance delta</span>
-        <strong style={{ color: opro.performanceDelta >= 0 ? "var(--accent)" : "var(--danger)" }}>
+        <strong className={opro.performanceDelta >= 0 ? "metric-positive" : "metric-negative"}>
           {opro.performanceDelta > 0 ? "+" : ""}{opro.performanceDelta.toFixed(4)}
         </strong>
       </div>
@@ -197,7 +197,7 @@ export function MantleProofPanel({
       : null;
 
   return (
-    <section className="panel span-4" ref={panelRef}>
+    <section className="panel span-4 proof-panel" ref={panelRef}>
       <span className="section-kicker">Audit trail</span>
       <h2>Mantle proof</h2>
 
@@ -245,17 +245,17 @@ export function MantleProofPanel({
       </div>
       <div className="hash">{data.signalHash}</div>
 
-      <div className="metric" style={{ marginTop: 12 }}>
+      <div className="metric metric-spaced">
         <span>Model version</span>
-        <strong style={{ fontSize: "0.75rem" }}>{data.modelVersion || "unknown"}</strong>
+        <strong className="metric-small">{data.modelVersion || "unknown"}</strong>
       </div>
       <div className="metric">
         <span>Report schema</span>
-        <strong style={{ fontSize: "0.75rem" }}>{data.reportSchema || "legacy-report"}</strong>
+        <strong className="metric-small">{data.reportSchema || "legacy-report"}</strong>
       </div>
       <div className="metric">
         <span>API proof mode</span>
-        <strong style={{ fontSize: "0.75rem" }}>{data.proofMode || "demo-proof"}</strong>
+        <strong className="metric-small">{data.proofMode || "demo-proof"}</strong>
       </div>
 
       {(settlement?.proofBundleHash || data.proofBundle?.proofBundleHash) && (
@@ -270,18 +270,18 @@ export function MantleProofPanel({
         <>
           <div className="metric">
             <span>zkTLS provider</span>
-            <strong style={{ fontSize: "0.75rem" }}>{data.dataProof.provider}</strong>
+            <strong className="metric-small">{data.dataProof.provider}</strong>
           </div>
           <div className="metric">
             <span>Data proof hash</span>
-            <strong style={{ fontSize: "0.75rem" }}>{shortHash(data.dataProof.proofHash)}</strong>
+            <strong className="metric-small">{shortHash(data.dataProof.proofHash)}</strong>
           </div>
         </>
       )}
       {data.contractAddress && (
         <div className="metric">
           <span>SignalRegistry</span>
-          <strong style={{ fontSize: "0.75rem" }}>{shortHash(data.contractAddress)}</strong>
+          <strong className="metric-small">{shortHash(data.contractAddress)}</strong>
         </div>
       )}
       {!data.contractAddress && (
@@ -293,61 +293,61 @@ export function MantleProofPanel({
       {data.signalRegistry && data.signalRegistry !== data.contractAddress && (
         <div className="metric">
           <span>SignalRegistry (config)</span>
-          <strong style={{ fontSize: "0.75rem" }}>{shortHash(data.signalRegistry)}</strong>
+          <strong className="metric-small">{shortHash(data.signalRegistry)}</strong>
         </div>
       )}
       {data.quantAgentExecutor && (
         <div className="metric">
           <span>QuantAgentExecutor</span>
-          <strong style={{ fontSize: "0.75rem" }}>{shortHash(data.quantAgentExecutor)}</strong>
+          <strong className="metric-small">{shortHash(data.quantAgentExecutor)}</strong>
         </div>
       )}
       {data.erc8004 && (
         <>
-          <div className="metric" style={{ marginTop: 8 }}>
+          <div className="metric metric-spaced">
             <span>ERC-8004 IdentityRegistry</span>
-            <strong style={{ fontSize: "0.75rem" }}>{shortHash(data.erc8004.identityRegistry)}</strong>
+            <strong className="metric-small">{shortHash(data.erc8004.identityRegistry)}</strong>
           </div>
           <div className="metric">
             <span>ERC-8004 ReputationRegistry</span>
-            <strong style={{ fontSize: "0.75rem" }}>{shortHash(data.erc8004.reputationRegistry)}</strong>
+            <strong className="metric-small">{shortHash(data.erc8004.reputationRegistry)}</strong>
           </div>
         </>
       )}
 
       {/* Explorer links */}
       {explorerUrl && (
-        <p style={{ marginTop: 12 }}>
-          <a href={explorerUrl} target="_blank" rel="noreferrer" style={{ color: "var(--accent)" }}>
+        <p className="explorer-link">
+          <a href={explorerUrl} target="_blank" rel="noreferrer">
             View on Mantle Explorer
           </a>
         </p>
       )}
       {chain?.txHash && !explorerUrl && (
-        <p style={{ marginTop: 8, fontSize: "0.8rem", color: "var(--muted)" }}>
+        <p className="tx-note">
           TX: {shortHash(chain.txHash)}
         </p>
       )}
 
       {chain?.message && (
-        <p style={{ color: "var(--muted)", fontSize: "0.85rem" }}>{chain.message}</p>
+        <p className="note">{chain.message}</p>
       )}
       {chain?.registryLayer && (
         <div className="metric">
           <span>Registry path</span>
-          <strong style={{ fontSize: "0.75rem" }}>{chain.registryLayer}</strong>
+          <strong className="metric-small">{chain.registryLayer}</strong>
         </div>
       )}
       {chain?.proofURI && (
         <div className="metric">
           <span>Validation proof URI</span>
-          <strong style={{ fontSize: "0.75rem" }}>{shortHash(chain.proofURI)}</strong>
+          <strong className="metric-small">{shortHash(chain.proofURI)}</strong>
         </div>
       )}
 
       {settlement && (
         <>
-          <h2 style={{ marginTop: 16 }}>Reputation settlement</h2>
+          <h2 className="panel-subtitle">Reputation settlement</h2>
           <div className="metric">
             <span>PnL bps</span>
             <strong>{settlement.pnlBps.toFixed(2)}</strong>
@@ -383,7 +383,7 @@ export function MantleProofPanel({
       {chain?.error && <p className="error">{chain.error}</p>}
 
       {/* Signature section */}
-      <div style={{ marginTop: 12 }}>
+      <div className="proof-actions">
         <button
           className="secondary full-width"
           onClick={handleSign}
@@ -392,7 +392,7 @@ export function MantleProofPanel({
           {signing ? "Signing…" : signature ? "Re-sign attestation" : "Sign attestation"}
         </button>
         {signature && (
-          <div className="hash" style={{ marginTop: 6, fontSize: "0.65rem" }}>
+          <div className="hash signature-hash">
             Sig: {shortHash(signature)}
           </div>
         )}

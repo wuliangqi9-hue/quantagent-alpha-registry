@@ -14,14 +14,14 @@ type Props = {
 };
 
 const AGENT_COLORS: Record<string, string> = {
-  Indicator: "#00e5ff",
-  Flow: "#ff9100",
-  Memory: "#e040fb",
-  Reputation: "#69f0ae",
-  Direction: "#ffd740",
-  Quantity: "#40c4ff",
-  Orchestrator: "#7c4dff",
-  ATLAS: "#ff4081",
+  Indicator: "#c7d7e8",
+  Flow: "#dbc58b",
+  Memory: "#c8b8d8",
+  Reputation: "#b7d7b8",
+  Direction: "#e0d4a8",
+  Quantity: "#9dd8cd",
+  Orchestrator: "#b9cde6",
+  ATLAS: "#df9a9a",
 };
 
 export function AgentTerminal({ messages, isActive }: Props) {

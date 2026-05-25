@@ -10,28 +10,29 @@ export function EmptyState() {
           </svg>
         </div>
         <div>
-          <span className="section-kicker">Decision runway</span>
-          <h2 className="empty-state-title">Waiting for First Decision</h2>
+          <span className="section-kicker">Quiet before signal</span>
+          <h2 className="empty-state-title">No decision composed yet</h2>
           <p className="empty-state-desc">
-            The workspace is ready to populate market factors, policy sizing, execution route, and proof evidence.
+            Choose an asset and run analysis. The desk will assemble research, risk, route, and proof into separate rooms
+            so the story stays readable.
           </p>
         </div>
       </div>
       <div className="empty-grid">
         <div>
           <span>01</span>
-          <h2>Factor Graph</h2>
-          <p>Momentum, volatility, liquidity, gas, and Mantle-native context feed the first signal.</p>
+          <h2>Research layer</h2>
+          <p>Market texture, Mantle-native context, and factor pressure become the first signal surface.</p>
         </div>
         <div>
           <span>02</span>
-          <h2>Position Policy</h2>
-          <p>FinPos risk sizing and QTMRL scoring compress the signal into an execution posture.</p>
+          <h2>Policy layer</h2>
+          <p>FinPos sizing and QTMRL scoring turn conviction into a bounded execution posture.</p>
         </div>
         <div>
           <span>03</span>
-          <h2>Proof Bundle</h2>
-          <p>zkTLS, TEE, ERC-8004, and reputation feedback become judge-readable evidence.</p>
+          <h2>Assurance layer</h2>
+          <p>Proof envelopes, identity, and reputation feedback make the decision inspectable.</p>
         </div>
       </div>
     </section>

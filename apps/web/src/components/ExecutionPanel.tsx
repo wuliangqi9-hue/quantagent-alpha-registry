@@ -15,7 +15,7 @@ export function ExecutionPanel({ data }: Props) {
   const action = intent?.action || data.selection.signalDirection;
 
   return (
-    <section className="panel span-4">
+    <section className="panel span-4 execution-panel">
       <span className="section-kicker">Route abstraction</span>
       <h2>Execution & Position</h2>
       <div className="execution-route">
