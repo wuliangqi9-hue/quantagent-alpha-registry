@@ -44,7 +44,7 @@ export function FactorCharts({ factors }: Props) {
       <span className="section-kicker">Mantle-native factors</span>
       <h2>Factor Summary</h2>
       <ResponsiveContainer width="100%" height={280}>
-        <RadarChart data={chartData}>
+        <RadarChart data={chartData} margin={{ top: 20, right: 42, bottom: 12, left: 42 }}>
           <PolarGrid stroke={chartGrid} />
           <PolarAngleAxis dataKey="factor" tick={{ fill: chartMuted, fontSize: 11 }} />
           <Radar dataKey="score" stroke={chartTeal} fill={chartTeal} fillOpacity={0.18} />
@@ -52,7 +52,7 @@ export function FactorCharts({ factors }: Props) {
         </RadarChart>
       </ResponsiveContainer>
       <ResponsiveContainer width="100%" height={180}>
-        <BarChart data={chartData}>
+        <BarChart data={chartData} margin={{ top: 6, right: 10, bottom: 0, left: -10 }}>
           <CartesianGrid strokeDasharray="3 3" stroke={chartGrid} />
           <XAxis dataKey="factor" tick={{ fill: chartMuted, fontSize: 10 }} />
           <YAxis domain={[-3, 3]} tick={{ fill: chartMuted }} />

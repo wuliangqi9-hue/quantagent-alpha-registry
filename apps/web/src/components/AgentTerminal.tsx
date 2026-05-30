@@ -31,47 +31,49 @@ export function AgentTerminal({ messages, isActive }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!isActive || messages.length === 0) {
-      setVisibleMessages([]);
-      setTypingText("");
-      return;
-    }
+    let cancelled = false;
 
-    // Append messages one by one with typewriter effect
-    let currentIndex = 0;
-    setVisibleMessages([]);
+    const sleep = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
 
-    const interval = setInterval(() => {
-      if (currentIndex >= messages.length) {
-        clearInterval(interval);
+    async function revealMessages() {
+      if (messages.length === 0) {
+        setVisibleMessages([]);
         setTypingText("");
+        setTypingAgent("");
         return;
       }
 
-      const msg = messages[currentIndex];
-      let charIndex = 0;
-      setTypingAgent(msg.agent);
+      const revealDelay = isActive ? 220 : 90;
+      const charDelay = isActive ? 12 : 4;
+      setVisibleMessages([]);
       setTypingText("");
+      setTypingAgent("");
 
-      const typeInterval = setInterval(() => {
-        if (charIndex >= msg.text.length) {
-          clearInterval(typeInterval);
-          setVisibleMessages((prev) => [...prev, msg]);
-          setTypingText("");
-          setTypingAgent("");
-          return;
+      for (const msg of messages) {
+        if (cancelled) return;
+        setTypingAgent(msg.agent);
+        setTypingText("");
+
+        for (let i = 0; i < msg.text.length; i += 1) {
+          if (cancelled) return;
+          setTypingText(msg.text.slice(0, i + 1));
+          await sleep(charDelay);
         }
-        const partial = msg.text.slice(0, charIndex + 1);
-        setTypingText(partial);
-        charIndex++;
-      }, 15);
 
-      currentIndex++;
-    }, 500);
+        if (cancelled) return;
+        setVisibleMessages((prev) => [...prev, msg]);
+        setTypingText("");
+        setTypingAgent("");
+        await sleep(revealDelay);
+      }
+    }
+
+    revealMessages();
 
     return () => {
-      clearInterval(interval);
+      cancelled = true;
       setTypingText("");
+      setTypingAgent("");
     };
   }, [messages, isActive]);
 

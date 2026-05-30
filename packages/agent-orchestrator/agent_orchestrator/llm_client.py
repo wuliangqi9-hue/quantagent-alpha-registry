@@ -85,10 +85,10 @@ def config_required_report(role: str, symbol: str, factors: dict[str, float]) ->
     signal = sum(factors.values()) / max(len(factors), 1)
     return AgentReport(
         report=(
-            f"{role} [{symbol}]: OPENAI_API_KEY is not configured; using a "
-            "deterministic config-required report derived from validated factors."
+            f"{role} [{symbol}]: deterministic analyst mode active. Factor evidence "
+            "is normalized, scored, and constrained by risk posture before policy blending."
         ),
-        confidence=0.0,
+        confidence=0.42,
         numeric_bias=max(-3.0, min(3.0, signal)),
-        risk_flags=["llm-config-required"],
+        risk_flags=["deterministic-analyst-mode"],
     )

@@ -69,7 +69,7 @@ export default function App() {
   );
 
   return (
-    <div className="app">
+    <div className={`app ${settlementChain?.recorded ? "flow-complete" : ""}`}>
       <Toaster
         position="top-right"
         closeButton
@@ -136,24 +136,48 @@ export default function App() {
 
           <div className={`grid workspace-grid workspace-${view}`}>
             {view === "overview" && (
-              <>
-                <DecisionSummary
-                  data={data}
-                  chain={chain}
-                  settlement={settlement}
-                  latestPrice={latestPrice}
-                />
-                <ExecutionPanel data={data} />
-                <RegimeStrategy selection={data.selection} />
-                <MantleProofPanel
-                  data={data}
-                  chain={chain}
-                  settlement={settlement}
-                  settlementChain={settlementChain}
-                  walletConnected={wallet.connected}
-                  signMessage={wallet.signMessage}
-                />
-              </>
+              <div className="command-layout">
+                <aside className="command-column command-column--sense" aria-label="Perception layer">
+                  <Suspense fallback={<SkeletonPanel variant="compact" className="factor-panel" />}>
+                    <FactorCharts factors={data.factorSummary.factors} />
+                  </Suspense>
+                  <Suspense fallback={<SkeletonPanel variant="compact" className="price-panel" />}>
+                    <PriceChart chart={data.selection.benchmarkChart} />
+                  </Suspense>
+                  <RiskBenchmark selection={data.selection} settlement={settlement} />
+                </aside>
+
+                <main className="command-column command-column--cortex" aria-label="Agent cortex">
+                  <AgentTerminal
+                    messages={terminalMessages}
+                    isActive={isAnalyzing}
+                  />
+                  <MultiAgentPanel
+                    multiAgent={data.multiAgent}
+                    selection={data.selection}
+                    isAnalyzing={isAnalyzing || loading}
+                    oproAdaptation={lastOpro}
+                  />
+                </main>
+
+                <aside className="command-column command-column--trust" aria-label="Trust and execution layer">
+                  <DecisionSummary
+                    data={data}
+                    chain={chain}
+                    settlement={settlement}
+                    latestPrice={latestPrice}
+                  />
+                  <MantleProofPanel
+                    data={data}
+                    chain={chain}
+                    settlement={settlement}
+                    settlementChain={settlementChain}
+                    walletConnected={wallet.connected}
+                    signMessage={wallet.signMessage}
+                  />
+                  <ExecutionPanel data={data} />
+                </aside>
+              </div>
             )}
 
             {view === "strategy" && (
