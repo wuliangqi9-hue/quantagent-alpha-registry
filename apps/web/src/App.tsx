@@ -71,7 +71,7 @@ export default function App() {
   return (
     <div className={`app ${settlementChain?.recorded ? "flow-complete" : ""}`}>
       <Toaster
-        position="top-right"
+        position="bottom-right"
         closeButton
         className="app-toaster"
         toastOptions={{

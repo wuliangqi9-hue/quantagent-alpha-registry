@@ -223,8 +223,8 @@ button:disabled {
 select:focus-visible,
 button:focus-visible,
 a:focus-visible {
-  outline: 3px solid rgba(199, 215, 232, 0.22);
-  outline-offset: 2px;
+  outline: 1px solid rgba(199, 215, 232, 0.34);
+  outline-offset: 1px;
 }
 
 .status-row {
@@ -1720,7 +1720,7 @@ a {
   width: 128px;
   aspect-ratio: 1;
   border: 1px solid rgba(199, 215, 232, 0.16);
-  border-radius: 10px;
+  border-radius: 0;
   background: radial-gradient(circle at center, rgba(199, 215, 232, 0.08), rgba(244, 241, 234, 0.035));
 }
 

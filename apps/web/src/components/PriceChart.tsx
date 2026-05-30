@@ -30,10 +30,10 @@ export function PriceChart({ chart }: Props) {
       <span className="section-kicker">Market tape</span>
       <h2>Benchmark Curve</h2>
       <ResponsiveContainer width="100%" height={300}>
-        <LineChart data={chart.prices}>
+        <LineChart data={chart.prices} margin={{ top: 10, right: 12, bottom: 0, left: 6 }}>
           <CartesianGrid strokeDasharray="3 3" stroke={chartGrid} />
           <XAxis dataKey="timestamp" hide />
-          <YAxis tick={{ fill: chartMuted }} domain={["auto", "auto"]} />
+          <YAxis width={54} tick={{ fill: chartMuted, fontSize: 11 }} domain={["auto", "auto"]} />
           <Tooltip contentStyle={tooltipStyle} cursor={{ stroke: chartGrid }} />
           <Line type="monotone" dataKey="close" stroke={chartBlue} dot={false} strokeWidth={2.25} />
         </LineChart>

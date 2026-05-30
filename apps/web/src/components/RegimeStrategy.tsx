@@ -75,18 +75,26 @@ function RadarScan() {
         {/* Crosshairs */}
         <line x1="60" y1="10" x2="60" y2="110" stroke="rgba(199,215,232,0.12)" strokeWidth="0.5" />
         <line x1="10" y1="60" x2="110" y2="60" stroke="rgba(199,215,232,0.12)" strokeWidth="0.5" />
-        {/* Sweep line */}
-        <motion.line
-          x1="60"
-          y1="60"
-          x2="110"
-          y2="60"
-          stroke="rgba(199,215,232,0.42)"
-          strokeWidth="1.5"
+        {/* Sweep line: rotate the full SVG group around the radar viewBox center. */}
+        <motion.g
           animate={{ rotate: [0, 360] }}
           transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
-          style={{ transformOrigin: "60px 60px" }}
-        />
+          style={{ transformBox: "view-box", transformOrigin: "center" }}
+        >
+          <line
+            x1="60"
+            y1="60"
+            x2="108"
+            y2="60"
+            stroke="rgba(199,215,232,0.42)"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+          />
+          <path
+            d="M60 60 L104 48 A46 46 0 0 1 108 60 Z"
+            fill="rgba(199,215,232,0.055)"
+          />
+        </motion.g>
         {/* Dots on radar */}
         <motion.circle
           cx="85"
