@@ -27,12 +27,37 @@ pinned: false
 - 利用 **ERC-8004** 标准，我们将 AI Agent 本身及其交易策略封装为可验证、可交易的链上资产。
 - 引入 **TEE（可信执行环境）** 与 **ZK-TLS（零知识传输层安全 / Reclaim 协议）**，在不暴露核心策略代码的前提下，向链上密码学层面证明“交易信号确实是由真实的链下市场数据生成的”。
 
-## 🔥 核心创新点 (Key Innovations)
+## 🔥 核心创新点与技术基石 (Core Innovations & Technical Foundations)
 
-- 🪪 **ERC-8004 策略资产化 (Agent Tokenization)**: 将抽象的量化策略实体化为链上卡片 (Agent Card)，实现策略的订阅、分发与可组合性。
-- 🔒 **零知识可信计算 (Verifiable Execution)**: 结合 `TEE` 与 `ZK-TLS`，确保链下 API 数据的真实性以及 AI 推理过程未被篡改，实现真正的 Trustless 交易信号注册。
-- 🧠 **深度强化学习路由 (A2C Strategy Selector)**: 摒弃静态规则，采用 Advantage Actor-Critic (A2C) 模型。AI 根据当前极端的加密市场机制 (Regime Strategy) 动态进行多策略融合 (Policy Blending) 与头寸管理。
-- 📊 **高维全景因子引擎 (Factor Engine)**: 实时处理衍生品 (Derivatives)、市场深度 (Market) 和 Mantle 原生链上数据 (On-chain)，为 AI 提供军工级的数据弹药。
+本项目的底层架构不仅是工程上的拼图，更是对当前密码学、强化学习与去中心化金融前沿研究的直接应用。
+
+### 1. 零知识传输层安全与数据溯源 (ZK-TLS & Data Provenance)
+
+在量化交易中，数据的真实性决定了策略的有效性。传统预言机存在中心化作恶风险，我们通过集成 **ZK-TLS (Zero-Knowledge Transport Layer Security)** 技术解决了这一痛点。
+
+- **具体技术**: 利用 Reclaim Protocol 及底层的多方安全计算 (MPC) 技术。Agent 在与中心化交易所 (CEX) 或 Web2 数据源建立 TLS 1.3 连接时，能在不暴露 API Key 的情况下，生成关于“特定数据确实来源于特定 HTTPS 响应”的 ZK-SNARK 证明，并提交至 `SignalRegistry.sol` 验证。
+- **学术渊源**: 基础理论源于 ACM CCS 2020 顶会论文 *DECO: Liberating Web Data Using Decentralized Oracles for TLS* (Zhang et al.)。该论文首次提出了在不修改现有 TLS 协议前提下，对 Web 数据进行零知识证明的范式。
+
+### 2. TEE 隔离边界内的去信任推理 (Trustless Inference via TEE)
+
+即便数据来源可信，如何证明 AI 模型的推理过程未被篡改？我们将整个 Agent 核心逻辑部署于 **TEE (可信执行环境)** 内。
+
+- **具体技术**: 利用硬件级内存隔离 (如 Intel SGX 或 AWS Nitro Enclaves)。Agent 在 TEE 内接收 ZK-TLS 验证过的数据，运行量化模型，并最终使用封装在 enclave 内的私钥对交易决策 (Decision Summary) 进行签名 (ECDSA)。
+- **学术渊源**: 架构灵感参考自 IEEE S&P 经典论文 *Town Crier: An Authenticated Data Feed for Smart Contracts* (Zhang et al., 2016)，将 SGX 硬件级信任引入智能合约。
+
+### 3. 极简强化学习与动态机制路由 (Regime-Aware A2C Reinforcement Learning)
+
+加密货币市场处于极端的非平稳状态 (Non-stationary)，静态规则极易失效。我们摒弃了臃肿的深度学习框架，实现了一套极简、无依赖的在线强化学习路由。
+
+- **具体技术**: 在 `packages/strategy-selector` 中，基于纯 NumPy 构建了 **A2C (Advantage Actor-Critic)** 模型。Actor 网络负责输出在不同市场机制 (Regime Strategy) 下的策略融合权重 (Policy Blending)，Critic 网络评估当前头寸状态 (FinPos) 的价值。同时引入了熵正则化 (Entropy Regularization) 以鼓励在极端行情中的探索，避免陷入局部最优。
+- **学术渊源**: 算法内核基于 DeepMind 的奠基性论文 *Asynchronous Methods for Deep Reinforcement Learning* (Mnih et al., ICML 2016)。金融应用参考了 *Deep Reinforcement Learning for Algorithmic Trading* 系列文献，将离散动作空间映射为连续的资金配置比例。
+
+### 4. ERC-8004：自治代理的资产化范式 (Tokenization of Autonomous Agents)
+
+我们将上述复杂的 AI 推理与密码学证明，统一封装进智能合约接口中，赋予 AI 独立经济实体的属性。
+
+- **具体技术**: 深度定制了 `ERC8004AgentCard.sol`。有别于传统的 ERC-721 仅记录静态元数据，我们将 Agent 的策略描述、API 回调端点、订阅收费模型以及历史声誉值 (Reputation) 结构化上链。结合 Mantle 网络的低延迟特性，实现了高频量化信号的去中心化分发与结算。
+- **学术渊源**: 探索了去中心化自治代理 (Decentralized Autonomous Agents, DAAs) 的前沿概念，将金融衍生品的可组合性 (Composability) 扩展到了 AI 模型层面。
 
 ## 🏗️ 系统架构 (Architecture)
 
