@@ -10,6 +10,14 @@ from fastapi.testclient import TestClient
 ROOT = Path(__file__).resolve().parents[3]
 TEST_DATA_DIR = Path(tempfile.gettempdir()) / "quantagent-api-tests"
 TEST_DATA_DIR.mkdir(parents=True, exist_ok=True)
+os.environ["QUANTAGENT_SKIP_DOTENV"] = "true"
+for secret_key in (
+    "MANTLE_PRIVATE_KEY",
+    "SIGNAL_REGISTRY_ADDRESS",
+    "MANTLE_ENABLE_ONCHAIN_WRITES",
+    "AGENT_ID",
+):
+    os.environ.pop(secret_key, None)
 os.environ.setdefault("MEMORY_STORE_PATH", str(TEST_DATA_DIR / "agent_memory.jsonl"))
 os.environ.setdefault("ATLAS_OPRO_STORE_PATH", str(TEST_DATA_DIR / "atlas_opro.jsonl"))
 sys.path.insert(0, str(ROOT))

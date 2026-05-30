@@ -3,7 +3,12 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 ROOT = Path(__file__).resolve().parents[3]
+if os.getenv("QUANTAGENT_SKIP_DOTENV", "false").lower() != "true":
+    load_dotenv(ROOT / ".env", override=False)
+
 SAMPLE_DIR = ROOT / "data" / "sample"
 FACTOR_ENGINE_DIR = ROOT / "packages" / "factor-engine"
 STRATEGY_SELECTOR_DIR = ROOT / "packages" / "strategy-selector"

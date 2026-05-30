@@ -20,6 +20,33 @@ Expected public routes:
 - `/api/agent` reports identity and reputation status.
 - `/api/settle` calculates settlement feedback and writes reputation when configured.
 
+## Current Mantle Sepolia Deployment
+
+Latest verified testnet deployment:
+
+```text
+Network: Mantle Sepolia
+Chain ID: 5003
+Deployer / Validator: 0x807cb49DA72a147c3CD90c8915eF5FA66c34712b
+SignalRegistry: 0x51e36B22FfC325CCE9d57343e187da4b28474e6e
+ERC8004AgentCard: 0x38b9dC3A6E09472c2FEcCD0cACaA7DD62C7f8b26
+Agent ID: 1
+Agent URI: https://wuliangqi-quantagent-demo.hf.space/api/agent/card
+```
+
+Evidence transactions:
+
+```text
+Agent registration:
+https://explorer.sepolia.mantle.xyz/tx/0x8e69fdb2b011c607b92f2b05ef19cf661004520e311bf457520003d2ede2ae1e
+
+Signal recording:
+https://explorer.sepolia.mantle.xyz/tx/0xbff86ebeb0db60905d082a9b300db7d950051552e6fba35be2b65d319b707272
+
+Reputation settlement:
+https://explorer.sepolia.mantle.xyz/tx/0xeba460e73ac9159913ce97363f0919b46ed2a69152f5b0610ca221ad6ea11851
+```
+
 ## Alternative Path: Native Single Public API Service
 
 Deploy one FastAPI service that also serves the built React dashboard.

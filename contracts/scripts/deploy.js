@@ -29,7 +29,7 @@ function exportArtifact(contractName, address) {
     `${contractName}.json`,
   );
   const artifact = JSON.parse(fs.readFileSync(artifactPath, "utf8"));
-  const exportPath = path.join(__dirname, "..", "artifacts", `${contractName}.json");
+  const exportPath = path.join(__dirname, "..", "artifacts", `${contractName}.json`);
   fs.mkdirSync(path.dirname(exportPath), { recursive: true });
   fs.writeFileSync(
     exportPath,
