@@ -100,10 +100,10 @@ export function HeaderPanel({
           <button className="primary-action" onClick={onAnalyze} disabled={loading}>
             {loading ? "Composing…" : "Run analysis"}
           </button>
-          <button className="secondary" onClick={onRecord} disabled={!hasData || recording || !wallet.connected}>
+          <button className="secondary" onClick={onRecord} disabled={!hasData || recording}>
             {recording ? "Recording…" : "Record signal"}
           </button>
-          <button className="secondary" onClick={onSettle} disabled={!hasData || settling || !wallet.connected}>
+          <button className="secondary" onClick={onSettle} disabled={!hasData || settling}>
             {settling ? "Settling…" : "Settle reputation"}
           </button>
         </div>
