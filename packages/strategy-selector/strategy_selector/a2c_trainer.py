@@ -18,10 +18,10 @@ Learning）论文框架的工程化实现。不依赖 PyTorch/TensorFlow，使�
 
 from __future__ import annotations
 
-import math
 import json
+import math
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -333,8 +333,6 @@ class A2CTrainer:
                 for j in range(self.cfg.state_dim):
                     self.critic_w1[i][j] -= self.cfg.critic_lr * critic_hidden_grad[i] * self.prev_state[j]
                 self.critic_b1[i] -= self.cfg.critic_lr * critic_hidden_grad[i]
-            else:
-                pass  # relu 梯度为 0，权重不更新
 
         # 更新 critic_w2 和 b2
         for i in range(self.cfg.hidden_dim):
@@ -351,9 +349,7 @@ class A2CTrainer:
             _mat_vec_mul(self.actor_w1, self.prev_state), self.actor_b1
         )
 
-        # actor_w2 梯度
-        actor_w2_grad = _zeros_mat(self.cfg.action_dim, self.cfg.hidden_dim)
-        actor_b2_grad = _zeros_vec(self.cfg.action_dim)
+        # actor_w2 梯度直接应用到权重，避免保存完整梯度矩阵。
         for a in range(self.cfg.action_dim):
             grad_factor = advantage
             if a == self.prev_action_idx:

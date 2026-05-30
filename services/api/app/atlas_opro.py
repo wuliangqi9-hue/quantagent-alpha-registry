@@ -313,12 +313,10 @@ class OPROGenomeStore:
         # 4. 确定变异的突变算子
         current_mutations = set(parent.active_mutations)
         available_new = [op for op in MUTATION_OPERATORS if op["id"] not in current_mutations]
-        available_remove = [op for op in MUTATION_OPERATORS if op["id"] in current_mutations]
 
         new_mutations = set(parent.active_mutations)
 
         # 受市场反馈影响的加权选择
-        regime = feedback.get("regime", "normal")
         volatility_mult = feedback.get("volatilityMultiplier", 1.0)
 
         # 在高波动环境中，更倾向于添加风控相关的突变

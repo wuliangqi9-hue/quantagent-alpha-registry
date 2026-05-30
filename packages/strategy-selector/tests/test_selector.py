@@ -34,7 +34,6 @@ from strategy_selector.selector import (
     STRATEGIES,
     STRATEGY_BENCHMARKS,
 )
-from strategy_selector.finpos import DirectionDecisionAgent
 
 
 def _make_ohlcv_df(rows: int = 120) -> pd.DataFrame:

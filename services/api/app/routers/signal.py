@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException
 
 from agent_memory import MemoryRecord
 
-from ..atlas_opro import get_opro_store, trigger_opro_adaptation
+from ..atlas_opro import trigger_opro_adaptation
 from ...atlas_adaptive_engine import evaluate_window, mutate_prompt
 from ..byreal import byreal_status
 from ..chain import (
@@ -239,11 +239,10 @@ async def settle(
                 finpos_rewards=finpos_rewards,
                 checkpoint_dir="data",
             )
-            if a2c_result is not None:
-                settlement["a2cTraining"] = a2c_result
+        if a2c_result is not None:
+            settlement["a2cTraining"] = a2c_result
 
         # ---- ATLAS Adaptive-OPRO 动态提示词演化 ----
-        opro_result = None
         adaptive_prompt = (payload.get("memory") or {}).get("adaptivePrompt", {})
         if opro_store is not None:
             opro_store.update_from_settlement(
@@ -281,7 +280,6 @@ async def settle(
         }
         opro_adapt = trigger_opro_adaptation(market_feedback=market_feedback)
         if opro_adapt and "oproAdaptation" not in settlement:
-            opro_result = opro_adapt
             settlement["oproAdaptation"] = opro_adapt
 
         # ---- TEE 证明生成 ----
