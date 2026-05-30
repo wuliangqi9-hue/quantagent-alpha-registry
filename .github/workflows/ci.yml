@@ -66,7 +66,7 @@ jobs:
             file="${entry%%:*}"
             symbol="${entry##*:}"
             test -f "$file"
-            rg "$symbol" .
+            grep -R --exclude-dir=.git --exclude-dir=.pytest_cache -- "$symbol" . >/dev/null
           done
 
   smoke-test:
