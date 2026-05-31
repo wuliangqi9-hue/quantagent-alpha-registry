@@ -210,6 +210,7 @@ export type DataProof = {
   proofHash: string;
   proofURI: string;
   mode: string;
+  verificationStatus?: string;
   verified: boolean;
   message: string;
 };
@@ -239,7 +240,7 @@ export type ProofBundle = {
 export type Analysis = {
   analysisId?: string;
   symbol: string;
-  mode: string;
+  mode: DataMode;
   signalHash: string;
   modelVersion: string;
   reportSchema: string;
@@ -316,6 +317,7 @@ export type ZktlsProof = {
   provider: string;
   endpoint: string;
   proofHash: string;
+  verificationStatus?: string;
   verified: boolean;
   message: string;
 };
@@ -354,4 +356,4 @@ export type Settlement = {
   oproAdaptation?: OproAdaptation;
 };
 
-export type DataMode = "auto" | "live" | "offline-demo";
+export type DataMode = "auto" | "live" | "offline-demo" | "offline-fallback";

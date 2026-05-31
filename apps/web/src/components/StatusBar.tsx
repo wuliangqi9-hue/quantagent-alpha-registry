@@ -1,11 +1,5 @@
 import type { Analysis, ChainResult } from "../types";
-
-const proofLabel = (chain: ChainResult | null, hasContract: boolean) => {
-  if (chain?.recorded) return "Recorded on Mantle";
-  if (chain?.error) return "On-chain attempt failed";
-  if (chain?.mock || chain?.proofMode === "demo-proof" || !hasContract) return "Demo-proof mode";
-  return "Ready to record";
-};
+import { chainProofLabel, chainProofTone, dataModeLabel, isOfflineDataMode } from "../utils/chainStatus";
 
 type Props = {
   data: Analysis;
@@ -14,13 +8,16 @@ type Props = {
 };
 
 export function StatusBar({ data, chain, latestPrice }: Props) {
+  const dataTone = isOfflineDataMode(data.mode) ? "offline" : "live";
+  const chainTone = chainProofTone(chain, Boolean(data.contractAddress));
+
   return (
     <div className="status-row">
-      <span className={`badge ${data.mode === "live" ? "live" : "offline"}`}>
-        {data.mode}
+      <span className={`badge ${dataTone}`}>
+        {dataModeLabel(data.mode)}
       </span>
-      <span className={`badge ${chain?.recorded ? "live" : "offline"}`}>
-        {proofLabel(chain, Boolean(data.contractAddress))}
+      <span className={`badge ${chainTone}`}>
+        {chainProofLabel(chain, Boolean(data.contractAddress))}
       </span>
       <span className="badge">{data.symbol}</span>
       {latestPrice != null && (

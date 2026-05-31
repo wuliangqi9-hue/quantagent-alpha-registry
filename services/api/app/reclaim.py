@@ -132,7 +132,10 @@ class ZkTLSProof:
     def to_onchain_payload(self) -> dict[str, Any]:
         """转换为 Reclaim Solidity 验证器所需的格式。"""
         return {
-            "claimId": _keccak_256(self.proof_id.encode()).hex(),
+            "claimId": _keccak_256(
+                self.proof_id.encode(),
+                simulated=self.verification_status == "simulated",
+            ).hex(),
             "provider": self.provider,
             "parameters": json.dumps(self.request_params, sort_keys=True),
             "context": json.dumps(
@@ -416,17 +419,16 @@ def _sha256_hex(data: str) -> str:
     return hashlib.sha256(data.encode("utf-8")).hexdigest()
 
 
-def _keccak_256(data: bytes) -> bytes:
-    """简化的 keccak256 实现，用于生成 claimId。
-
-    实际部署时使用 web3.py 的 Web3.keccak。
-    """
+def _keccak_256(data: bytes, *, simulated: bool = False) -> bytes:
+    """Keccak256 for live claims; deterministic demo hash when web3 is unavailable."""
     try:
         from web3 import Web3 as _Web3
 
         return _Web3.keccak(data)
-    except ImportError:
-        return hashlib.sha256(data).digest()
+    except ImportError as exc:
+        if simulated:
+            return hashlib.sha256(b"quantagent-simulated-claim:" + data).digest()
+        raise RuntimeError("web3 is required for Reclaim claimId hashing") from exc
 
 
 # ------------------------------------------------------------------

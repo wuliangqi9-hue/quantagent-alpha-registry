@@ -43,6 +43,11 @@ app.include_router(agent_router.router)
 app.include_router(gas_router.router)
 app.include_router(byreal_perps_router.router)
 
+@app.get("/api/gas", include_in_schema=False)
+async def api_gas():
+    return await gas_router.gas_status()
+
+
 _memory_store = AgentMemoryStore(MEMORY_STORE_PATH)
 _opro_store = AdaptiveOPROStore(ATLAS_OPRO_STORE_PATH)
 

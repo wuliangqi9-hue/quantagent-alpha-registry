@@ -18,7 +18,7 @@ const formatBps = (value: number | undefined): string => {
 
 const proofState = (data: Analysis, chain: ChainResult | null): string => {
   if (chain?.recorded) return "Mantle recorded";
-  if (chain?.error) return "Record failed";
+  if (chain?.error || chain?.proofMode === "onchain-attempt-failed") return "Record failed";
   if (!data.contractAddress || chain?.mock || data.proofMode === "demo-proof") return "Demo proof";
   return "Ready";
 };

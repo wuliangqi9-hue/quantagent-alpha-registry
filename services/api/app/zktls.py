@@ -18,6 +18,7 @@ class ZkTLSProofEnvelope:
     message: str
 
     def to_dict(self) -> dict[str, Any]:
+        verification_status = "zk-verified" if self.verified else "deterministic-envelope"
         return {
             "schema": self.schema,
             "provider": self.provider,
@@ -25,6 +26,7 @@ class ZkTLSProofEnvelope:
             "proofHash": self.proofHash,
             "proofURI": self.proofURI,
             "mode": self.mode,
+            "verificationStatus": verification_status,
             "verified": self.verified,
             "message": self.message,
         }

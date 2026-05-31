@@ -375,19 +375,3 @@ def submit_reputation_feedback(
     )
     return receipt
 
-
-def mock_record(signal_hash: str, symbol: str, strategy_id: str, model_version: str, mode: str) -> dict[str, Any]:
-    return {
-        "recorded": False,
-        "mock": True,
-        "proofMode": "demo-proof",
-        "mode": mode,
-        "signalHash": signal_hash,
-        "symbol": symbol,
-        "strategyId": strategy_id,
-        "modelVersion": model_version,
-        "txHash": None,
-        "explorerUrl": None,
-        "privateMempoolConfigured": bool(PRIVATE_MEMPOOL_RPC_URL),
-        "message": "Demo mode: configure Mantle credentials to submit a real transaction.",
-    }

@@ -11,7 +11,7 @@ from .x402 import X402Client
 
 logger = logging.getLogger(__name__)
 
-Mode = Literal["live", "offline-demo"]
+Mode = Literal["live", "offline-demo", "offline-fallback"]
 
 BINANCE_SYMBOLS = {"BTC": "BTCUSDT", "ETH": "ETHUSDT", "SOL": "SOLUSDT"}
 
@@ -168,4 +168,5 @@ async def load_market_data(symbol: str, mode: str | None = None) -> tuple[pd.Dat
     try:
         return await fetch_binance_klines(symbol), "live"
     except Exception:
-        return load_offline(symbol)
+        df, _ = load_offline(symbol)
+        return df, "offline-fallback"

@@ -48,6 +48,11 @@ jobs:
         run: |
           python -m unittest discover packages/strategy-selector/tests
 
+      - name: Run API tests (pytest)
+        run: |
+          pip install -r services/api/requirements.txt
+          python -m pytest services/api/tests -q
+
       - name: Check new source files are referenced
         shell: bash
         run: |

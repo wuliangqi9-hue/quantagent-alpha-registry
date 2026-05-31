@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import sys
 from pathlib import Path
 from typing import Any
@@ -38,6 +39,7 @@ from ..proof_bundle import build_proof_bundle
 from ..zktls import ReclaimProofAdapter
 
 router = APIRouter(tags=["analysis"])
+logger = logging.getLogger(__name__)
 
 
 def _proof_mode() -> str:
@@ -114,8 +116,16 @@ async def analyze(body: AnalyzeRequest, memory_store: Any, opro_store: Any | Non
             memory_context=memory_context,
             multi_agent_context=multi_agent_context,
         )
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        logger.exception("analyze pipeline failed for %s", symbol)
+        raise HTTPException(
+            status_code=500,
+            detail={"code": "analyze-failed", "message": "Analysis pipeline error."},
+        ) from exc
 
     report = build_decision_report(symbol, data_mode, factor_summary, selection, data_proof=data_proof)
     sig_hash = signal_hash(report)

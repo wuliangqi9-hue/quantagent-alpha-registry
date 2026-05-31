@@ -7,6 +7,7 @@ from time import time
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
+from fastapi.responses import JSONResponse
 
 from agent_memory import MemoryRecord
 
@@ -25,7 +26,6 @@ from ..config import (
     CHAIN_WRITE_AUTH_CONFIGURED,
     FINPOS_MULTI_TIMESCALE_ENABLED,
     MANTLE_ALLOW_PUBLIC_WRITES,
-    MEMORY_STORE_PATH,
     ONCHAIN_WRITE_AUTH_TOKEN,
 )
 from ..erc8004 import build_reputation_feedback
@@ -183,6 +183,22 @@ def _dedup_prompt_append(current_prompt: str, addition: str, *, max_chars: int =
     return combined[-max_chars:].lstrip()
 
 
+def _enrich_chain_metadata(chain_result: dict[str, Any], settlement: dict[str, Any]) -> None:
+    chain_result.setdefault("erc8004Feedback", build_reputation_feedback(settlement))
+    chain_result.setdefault(
+        "standardReputationFeedback",
+        ERC8004Adapter().reputation_feedback_payload(settlement),
+    )
+
+
+def _chain_attempt_http_status(chain_result: dict[str, Any]) -> int:
+    if chain_result.get("recorded"):
+        return 200
+    if chain_result.get("proofMode") == "onchain-attempt-failed":
+        return 502
+    return 200
+
+
 def _require_onchain_write_authorized(
     request: Request,
     *,
@@ -313,8 +329,8 @@ async def record_signal(body: RecordSignalRequest, request: Request):
         strategy_id=strategy_id,
     )
 
+    report = payload.get("decisionReport") if body.useLastAnalysis else None
     try:
-        report = payload.get("decisionReport") if body.useLastAnalysis else None
         chain_result = await _record_signal_on_chain_async(sig, symbol, strategy_id, model_version, mode, report)
     except Exception as exc:
         chain_result = {
@@ -328,10 +344,12 @@ async def record_signal(body: RecordSignalRequest, request: Request):
             "txHash": None,
             "explorerUrl": None,
             "error": str(exc),
+            "proofMode": "onchain-attempt-failed",
             "message": "Configured on-chain recording failed.",
         }
 
-    return {"signalHash": sig, "chain": chain_result}
+    response_body = {"signalHash": sig, "chain": chain_result}
+    return JSONResponse(content=response_body, status_code=_chain_attempt_http_status(chain_result))
 
 
 @router.post("/settle")
@@ -346,20 +364,26 @@ async def settle(
     else:
         raise HTTPException(status_code=400, detail="Settlement requires a referenced analysis session.")
 
+    previous_records = memory_store.load(symbol=payload["symbol"]) if memory_store is not None else []
+    settlement = settle_last_signal(payload, body.exitPrice, previous_records=previous_records)
+    agent = payload.get("agent") or {}
+    reputation_score = None
+    if isinstance(agent, dict) and isinstance(agent.get("reputation"), dict):
+        reputation_score = agent["reputation"].get("score")
+
     try:
-        previous_records = memory_store.load(symbol=payload["symbol"]) if memory_store is not None else []
-        settlement = settle_last_signal(payload, body.exitPrice, previous_records=previous_records)
-        reputation_score = None
-        agent = payload.get("agent") or {}
-        if isinstance(agent, dict) and isinstance(agent.get("reputation"), dict):
-            reputation_score = agent["reputation"].get("score")
         record = MemoryRecord.from_analysis(payload, settlement, reputation_score=reputation_score)
         if memory_store is not None:
             memory_store.append(record)
+    except Exception as exc:
+        settlement["memoryAppendError"] = {
+            "code": "memory-append-failed",
+            "message": str(exc),
+        }
 
-        # ---- FinPos 多时间尺度奖励 ----
-        finpos_rewards = None
-        if FINPOS_MULTI_TIMESCALE_ENABLED:
+    finpos_rewards = None
+    if FINPOS_MULTI_TIMESCALE_ENABLED:
+        try:
             current_exposure = (agent.get("wallet") or {}).get("exposurePct", 0.0)
             signal_direction = str(payload["selection"]["signalDirection"]).lower()
             direction_correct = (
@@ -378,10 +402,14 @@ async def settle(
             )
             settlement["finposRewards"] = finpos_rewards.to_dict()
             settlement["compositeScore"] = finpos_rewards.composite_score
+        except Exception as exc:
+            settlement["finposError"] = {
+                "code": "finpos-rewards-failed",
+                "message": str(exc),
+            }
 
-        # ---- A2C 强化学习在线训练 (FinPos 奖励 -> 策略网络更新) ----
-        a2c_result = None
-        if A2C_ENABLED_CFG and finpos_rewards is not None:
+    if A2C_ENABLED_CFG and finpos_rewards is not None:
+        try:
             a2c_result = run_a2c_training_step(
                 symbol=payload.get("symbol", "BTC"),
                 payload=payload,
@@ -389,12 +417,17 @@ async def settle(
                 finpos_rewards=finpos_rewards,
                 checkpoint_dir="data",
             )
-        if a2c_result is not None:
-            settlement["a2cTraining"] = a2c_result
+            if a2c_result is not None:
+                settlement["a2cTraining"] = a2c_result
+        except Exception as exc:
+            settlement["a2cTrainingError"] = {
+                "code": "a2c-training-failed",
+                "message": str(exc),
+            }
 
-        # ---- ATLAS Adaptive-OPRO 动态提示词演化 ----
-        adaptive_prompt = (payload.get("memory") or {}).get("adaptivePrompt", {})
-        if opro_store is not None:
+    if opro_store is not None:
+        try:
+            adaptive_prompt = (payload.get("memory") or {}).get("adaptivePrompt", {})
             opro_store.update_from_settlement(
                 prompt_id=adaptive_prompt.get("id"),
                 prompt_template=adaptive_prompt.get("template"),
@@ -422,7 +455,13 @@ async def settle(
                         "selectedTemplate": atlas_engine_result.get("selectedTemplate", ""),
                         "rationale": atlas_engine_result.get("rationale", ""),
                     }
-        # 触发一次适应周期（基于市场反馈）
+        except Exception as exc:
+            settlement["oproError"] = {
+                "code": "opro-adaptation-failed",
+                "message": str(exc),
+            }
+
+    try:
         market_feedback = {
             "regime": (payload.get("regime") or {}).get("regime", "normal"),
             "volatilityMultiplier": float((payload.get("regime") or {}).get("volatilityMultiplier", 1.0)),
@@ -431,126 +470,126 @@ async def settle(
         opro_adapt = trigger_opro_adaptation(market_feedback=market_feedback)
         if opro_adapt and "oproAdaptation" not in settlement:
             settlement["oproAdaptation"] = opro_adapt
+    except Exception as exc:
+        settlement["oproAdaptationError"] = {
+            "code": "opro-trigger-failed",
+            "message": str(exc),
+        }
 
-        # ---- TEE 证明生成 ----
-        tee_attestation = None
-        try:
-            attestor = get_tee_attestor()
-            payload_json = (
-                payload["signalHash"]
-                + str(settlement.get("pnlBps", ""))
-                + payload["selection"]["signalDirection"]
-            )
-            tee_attestation = attestor.attest_execution(
-                payload=payload_json,
-                metadata={
-                    "signalHash": payload["signalHash"],
-                    "symbol": payload["symbol"],
-                    "pnlBps": settlement.get("pnlBps", 0),
-                    "strategyId": payload["selection"]["strategyId"],
-                },
-            )
-            settlement["teeAttestation"] = tee_attestation.to_dict()
-        except Exception as exc:
-            settlement["teeAttestationError"] = {
-                "code": "tee-attestation-failed",
-                "message": str(exc),
-            }
-
-        # ---- Reclaim zkTLS 数据溯源证明 ----
-        zktls_proof = None
-        try:
-            reclaim = get_reclaim_adapter()
-            data_sources = (payload.get("factorEngine") or {}).get("sources", [])
-            if data_sources:
-                # 为第一个数据源生成 zkTLS 证明
-                source = data_sources[0] if isinstance(data_sources[0], dict) else {}
-                provider_key = source.get("provider", "binance")
-                response_body = source.get("response", {})
-                request_params = source.get("params", {})
-                zktls_proof = generate_zktls_proof(
-                    provider_key=provider_key,
-                    response_body=response_body,
-                    request_params=request_params,
-                )
-            elif payload.get("dataProof"):
-                data_proof = payload["dataProof"]
-                zktls_proof = generate_zktls_proof(
-                    provider_key="binance-klines",
-                    response_body=data_proof,
-                    request_params={
-                        "symbol": payload["symbol"],
-                        "mode": payload.get("mode"),
-                        "proofHash": data_proof.get("proofHash"),
-                    },
-                    custom_endpoint=str(data_proof.get("endpoint") or "/api/v3/klines"),
-                )
-            if zktls_proof is not None:
-                verification_payload = reclaim.build_verification_payload(
-                    zktls_proof,
-                    signal_hash=payload["signalHash"],
-                )
-                settlement["zktlsProof"] = zktls_proof.to_dict()
-                settlement["zktlsVerification"] = verification_payload
-        except Exception as exc:
-            settlement["zktlsProofError"] = {
-                "code": "zktls-proof-failed",
-                "message": str(exc),
-            }
-
-        try:
-            if request is not None:
-                _require_onchain_write_authorized(
-                    request,
-                    signal_hash=payload["signalHash"],
-                    symbol=payload["symbol"],
-                    strategy_id=payload["selection"]["strategyId"],
-                )
-            chain_result = await _submit_reputation_feedback_async(
-                settlement["score"],
-                signal_hash=payload["signalHash"],
-                tag1="pnl-bps",
-                tag2=payload["selection"]["signalDirection"],
-                feedback_payload=settlement,
-            )
-        except HTTPException as exc:
-            detail = exc.detail if isinstance(exc.detail, dict) else {"message": str(exc.detail)}
-            chain_result = {
-                "recorded": False,
-                "mock": False,
-                "proofMode": detail.get("proofMode", "onchain-write-unavailable"),
-                "signalHash": payload["signalHash"],
-                "error": detail.get("code", "onchain-write-unavailable"),
-                "message": detail.get(
-                    "message",
-                    "Settlement calculated locally; on-chain reputation write was not authorized.",
-                ),
-            }
-        except Exception as exc:
-            chain_result = {
-                "recorded": False,
-                "mock": False,
-                "proofMode": "onchain-attempt-failed" if CHAIN_CONFIGURED else "config-required",
-                "signalHash": payload["signalHash"],
-                "error": str(exc),
-                "message": (
-                    "Configured reputation write failed; local settlement, proof bundle, and adaptive outputs were preserved."
-                    if CHAIN_CONFIGURED
-                    else "Settlement calculated locally; configure Mantle credentials to write reputation on-chain."
-                ),
-            }
-        chain_result.setdefault("erc8004Feedback", build_reputation_feedback(settlement))
-        chain_result.setdefault(
-            "standardReputationFeedback",
-            ERC8004Adapter().reputation_feedback_payload(settlement),
+    tee_attestation = None
+    try:
+        attestor = get_tee_attestor()
+        payload_json = (
+            payload["signalHash"]
+            + str(settlement.get("pnlBps", ""))
+            + payload["selection"]["signalDirection"]
         )
+        tee_attestation = attestor.attest_execution(
+            payload=payload_json,
+            metadata={
+                "signalHash": payload["signalHash"],
+                "symbol": payload["symbol"],
+                "pnlBps": settlement.get("pnlBps", 0),
+                "strategyId": payload["selection"]["strategyId"],
+            },
+        )
+        settlement["teeAttestation"] = tee_attestation.to_dict()
+    except Exception as exc:
+        settlement["teeAttestationError"] = {
+            "code": "tee-attestation-failed",
+            "message": str(exc),
+        }
 
-        # 将 TEE 证明和 zkTLS 证明附加到链上结果
-        if tee_attestation:
-            chain_result["teeAttestationHash"] = tee_attestation.attestation_hash
-        if zktls_proof:
-            chain_result["zktlsProofId"] = zktls_proof.proof_id
+    zktls_proof = None
+    try:
+        reclaim = get_reclaim_adapter()
+        data_sources = (payload.get("factorEngine") or {}).get("sources", [])
+        if data_sources:
+            source = data_sources[0] if isinstance(data_sources[0], dict) else {}
+            provider_key = source.get("provider", "binance")
+            response_body = source.get("response", {})
+            request_params = source.get("params", {})
+            zktls_proof = generate_zktls_proof(
+                provider_key=provider_key,
+                response_body=response_body,
+                request_params=request_params,
+            )
+        elif payload.get("dataProof"):
+            data_proof = payload["dataProof"]
+            zktls_proof = generate_zktls_proof(
+                provider_key="binance-klines",
+                response_body=data_proof,
+                request_params={
+                    "symbol": payload["symbol"],
+                    "mode": payload.get("mode"),
+                    "proofHash": data_proof.get("proofHash"),
+                },
+                custom_endpoint=str(data_proof.get("endpoint") or "/api/v3/klines"),
+            )
+        if zktls_proof is not None:
+            verification_payload = reclaim.build_verification_payload(
+                zktls_proof,
+                signal_hash=payload["signalHash"],
+            )
+            settlement["zktlsProof"] = zktls_proof.to_dict()
+            settlement["zktlsVerification"] = verification_payload
+    except Exception as exc:
+        settlement["zktlsProofError"] = {
+            "code": "zktls-proof-failed",
+            "message": str(exc),
+        }
 
+    chain_result: dict[str, Any]
+    try:
+        if request is not None:
+            _require_onchain_write_authorized(
+                request,
+                signal_hash=payload["signalHash"],
+                symbol=payload["symbol"],
+                strategy_id=payload["selection"]["strategyId"],
+            )
+        chain_result = await _submit_reputation_feedback_async(
+            settlement["score"],
+            signal_hash=payload["signalHash"],
+            tag1="pnl-bps",
+            tag2=payload["selection"]["signalDirection"],
+            feedback_payload=settlement,
+        )
+    except HTTPException as exc:
+        detail = exc.detail if isinstance(exc.detail, dict) else {"message": str(exc.detail)}
+        chain_result = {
+            "recorded": False,
+            "mock": False,
+            "proofMode": detail.get("proofMode", "onchain-write-unavailable"),
+            "signalHash": payload["signalHash"],
+            "error": detail.get("code", "onchain-write-unavailable"),
+            "message": detail.get(
+                "message",
+                "Settlement calculated locally; on-chain reputation write was not authorized.",
+            ),
+        }
+    except Exception as exc:
+        chain_result = {
+            "recorded": False,
+            "mock": False,
+            "proofMode": "onchain-attempt-failed" if CHAIN_CONFIGURED else "config-required",
+            "signalHash": payload["signalHash"],
+            "error": str(exc),
+            "message": (
+                "Configured reputation write failed; local settlement, proof bundle, and adaptive outputs were preserved."
+                if CHAIN_CONFIGURED
+                else "Settlement calculated locally; configure Mantle credentials to write reputation on-chain."
+            ),
+        }
+
+    _enrich_chain_metadata(chain_result, settlement)
+
+    if tee_attestation:
+        chain_result["teeAttestationHash"] = tee_attestation.attestation_hash
+    if zktls_proof:
+        chain_result["zktlsProofId"] = zktls_proof.proof_id
+
+    try:
         proof_bundle = build_proof_bundle(
             decision_report=payload.get("decisionReport", {}),
             data_proof=payload.get("dataProof"),
@@ -564,25 +603,15 @@ async def settle(
         settlement["proofBundle"] = proof_bundle
         chain_result["proofBundleHash"] = proof_bundle["proofBundleHash"]
     except Exception as exc:
-        previous_records = memory_store.load(symbol=payload["symbol"]) if memory_store is not None else []
-        settlement = settle_last_signal(payload, body.exitPrice, previous_records=previous_records)
-        chain_result = {
-            "recorded": False,
-            "mock": False,
-            "proofMode": "onchain-attempt-failed" if CHAIN_CONFIGURED else "config-required",
-            "signalHash": payload["signalHash"],
-            "error": str(exc),
-            "message": (
-                "Configured reputation write failed."
-                if CHAIN_CONFIGURED
-                else "Settlement calculated locally; configure Mantle credentials to write reputation on-chain."
-            ),
+        settlement["proofBundleError"] = {
+            "code": "proof-bundle-failed",
+            "message": str(exc),
         }
 
     result: dict[str, Any] = {"settlement": settlement, "chain": chain_result}
     if memory_store is not None:
         result["memory"] = memory_store.summary(payload["symbol"])
-    return result
+    return JSONResponse(content=result, status_code=_chain_attempt_http_status(chain_result))
 
 
 async def _submit_reputation_feedback_async(*args: Any, **kwargs: Any) -> dict[str, Any]:
@@ -617,7 +646,6 @@ async def memory_status(
         "summary": memory_store.summary(sym) if memory_store is not None else None,
         "recent": [],
     }
-    base["storePath"] = str(MEMORY_STORE_PATH) if memory_store is not None else "not-initialized"
     if memory_store is not None:
         base["recent"] = [asdict(record) for record in memory_store.load(symbol=sym, limit=10)]
     return base

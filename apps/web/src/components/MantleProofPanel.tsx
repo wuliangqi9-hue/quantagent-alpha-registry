@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { Analysis, ChainResult, FinposRewards, OproAdaptation, Settlement, TeeAttestation, ZktlsProof } from "../types";
+import { chainProofLabel, chainProofTone, chainReputationLabel, chainReputationTone, type ChainTone } from "../utils/chainStatus";
 
 const shortHash = (value: string | null | undefined): string =>
   value ? `${value.slice(0, 10)}…${value.slice(-8)}` : "Not configured";
@@ -8,13 +9,7 @@ const shortHash = (value: string | null | undefined): string =>
 const DEFAULT_EXPLORER =
   import.meta.env.VITE_MANTLE_EXPLORER || "https://explorer.sepolia.mantle.xyz";
 
-const proofLabel = (chain: ChainResult | null, hasContract: boolean): string => {
-  if (chain?.recorded) return "Recorded on Mantle";
-  if (chain?.error) return "On-chain attempt failed";
-  if (chain?.mock || chain?.proofMode === "demo-proof" || !hasContract) return "Demo-proof mode";
-  if (chain?.proofMode === "write-locked") return "On-chain writes locked";
-  return "Ready to record";
-};
+const toneClass = (tone: ChainTone): string => (tone === "live" ? "recorded" : tone);
 
 const FinposRewardRow = ({ rewards }: { rewards?: FinposRewards }) => {
   if (!rewards) return null;
@@ -199,6 +194,8 @@ export function MantleProofPanel({
     : settlementChain?.txHash
       ? `${data.explorerBase || DEFAULT_EXPLORER}/tx/${settlementChain.txHash}`
       : null;
+  const proofTone = chainProofTone(chain, Boolean(data.contractAddress));
+  const reputationTone = chainReputationTone(settlementChain);
 
   return (
     <section className="panel span-4 proof-panel" ref={panelRef}>
@@ -218,11 +215,11 @@ export function MantleProofPanel({
       </AnimatePresence>
 
       <motion.div
-        className={`proof-state ${chain?.recorded ? "recorded" : "demo"}`}
-        animate={chain?.recorded ? { scale: [1, 1.02, 1] } : {}}
+        className={`proof-state ${toneClass(proofTone)}`}
+        animate={proofTone === "live" ? { scale: [1, 1.02, 1] } : {}}
         transition={{ duration: 3, repeat: Infinity }}
       >
-        {proofLabel(chain, Boolean(data.contractAddress))}
+        {chainProofLabel(chain, Boolean(data.contractAddress))}
       </motion.div>
 
       <div className="proof-timeline">
@@ -238,9 +235,9 @@ export function MantleProofPanel({
           <span>TEE</span>
           <strong>{settlement?.teeAttestation?.enclavePlatform || "pending"}</strong>
         </div>
-        <div className={`proof-step ${settlementChain?.recorded ? "recorded" : "demo"}`}>
+        <div className={`proof-step ${toneClass(reputationTone)}`}>
           <span>Reputation</span>
-          <strong>{settlementChain?.recorded ? "written" : "simulated"}</strong>
+          <strong>{chainReputationLabel(settlementChain)}</strong>
         </div>
       </div>
 
@@ -378,8 +375,10 @@ export function MantleProofPanel({
           <TeeAttestationRow tee={settlement.teeAttestation} />
           <ZktlsProofRow proof={settlement.zktlsProof} />
           <OproAdaptationRow opro={settlement.oproAdaptation} />
-          <div className={`proof-state ${settlementChain?.recorded ? "recorded" : "demo"}`}>
-            {settlementChain?.recorded ? "Reputation written" : "Reputation not written on-chain"}
+          <div className={`proof-state ${toneClass(reputationTone)}`}>
+            {settlementChain?.recorded
+              ? "Reputation written"
+              : chainReputationLabel(settlementChain)}
           </div>
         </>
       )}

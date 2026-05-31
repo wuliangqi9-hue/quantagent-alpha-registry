@@ -1,8 +1,17 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
 import type { Analysis, ChainResult, DataMode, OproAdaptation, Settlement } from "../types";
 
 const API_BASE = import.meta.env.VITE_API_URL || "/api";
+const WRITE_TOKEN = import.meta.env.VITE_ONCHAIN_WRITE_TOKEN || "";
+
+function writeHeaders(): Record<string, string> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (WRITE_TOKEN) {
+    headers["x-quantagent-write-token"] = WRITE_TOKEN;
+  }
+  return headers;
+}
 
 export type TerminalMessage = {
   id: number;
@@ -54,15 +63,39 @@ function buildTerminalMessages(analysis: Analysis | null): TerminalMessage[] {
   return msgs;
 }
 
+async function parseApiErrorBody(body: unknown, res: Response, fallback: string): Promise<string> {
+  if (body && typeof body === "object" && body !== null) {
+    const record = body as { detail?: unknown; error?: string };
+    if (typeof record.detail === "string") return record.detail;
+    if (record.detail && typeof record.detail === "object") {
+      const detail = record.detail as { code?: string; message?: string };
+      return detail.message || detail.code || `${fallback} (${res.status})`;
+    }
+    if (typeof record.error === "string") return record.error;
+  }
+  return `${fallback} (${res.status})`;
+}
+
 async function parseApiError(res: Response, fallback: string): Promise<string> {
   const body = await res.json().catch(() => null);
-  if (body && typeof body.detail === "string") return body.detail;
-  if (body && body.detail && typeof body.detail === "object") {
-    const detail = body.detail as { code?: string; message?: string };
-    return detail.message || detail.code || `${fallback} (${res.status})`;
-  }
-  if (body && typeof body.error === "string") return body.error;
-  return `${fallback} (${res.status})`;
+  return parseApiErrorBody(body, res, fallback);
+}
+
+function applySettlementPayload(payload: Record<string, unknown>): {
+  settlement: Settlement;
+  oproAdaptation: OproAdaptation | null;
+} {
+  const s = (payload.settlement || {}) as Record<string, unknown>;
+  const oproAdaptation = (s.oproAdaptation ?? s.opro_adaptation ?? null) as OproAdaptation | null;
+  const settlement = {
+    ...s,
+    finposRewards: s.finposRewards ?? s.finpos_rewards ?? undefined,
+    compositeScore: s.compositeScore ?? s.composite_score ?? undefined,
+    teeAttestation: s.teeAttestation ?? s.tee_attestation ?? undefined,
+    zktlsProof: s.zktlsProof ?? s.zktls_proof ?? undefined,
+    oproAdaptation,
+  } as Settlement;
+  return { settlement, oproAdaptation };
 }
 
 export function useAnalysis() {
@@ -76,9 +109,7 @@ export function useAnalysis() {
   const [settlement, setSettlement] = useState<Settlement | null>(null);
   const [settlementChain, setSettlementChain] = useState<ChainResult | null>(null);
   const [error, setError] = useState<string | null>(null);
-  // 存储最近一次 settle 返回的 oproAdaptation
   const [lastOpro, setLastOpro] = useState<OproAdaptation | null>(null);
-  // 是否处于分析"进行中"状态（打字机/终端动画播放期间）
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   const terminalMessages = useMemo(() => buildTerminalMessages(data), [data]);
@@ -123,18 +154,22 @@ export function useAnalysis() {
     try {
       const res = await fetch(`${API_BASE}/record-signal`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: writeHeaders(),
         body: JSON.stringify({
           useLastAnalysis: true,
           analysisId: data.analysisId,
           signalHash: data.signalHash,
         }),
       });
-      if (!res.ok) throw new Error(await parseApiError(res, "Record failed"));
       const payload = await res.json();
+      if (!res.ok && res.status !== 502) {
+        throw new Error(await parseApiErrorBody(payload, res, "Record failed"));
+      }
       setChain(payload.chain);
       if (payload.chain?.recorded) {
         toast.success("Signal recorded on Mantle. Explorer link is ready.", { id: toastId });
+      } else if (res.status === 502) {
+        toast.error(payload.chain?.message || "On-chain recording failed.", { id: toastId });
       } else {
         toast.info(payload.chain?.message || "Signal is not on-chain yet. Check write-lock or Mantle config.", { id: toastId });
       }
@@ -155,26 +190,19 @@ export function useAnalysis() {
     try {
       const res = await fetch(`${API_BASE}/settle`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: writeHeaders(),
         body: JSON.stringify({
           useLastAnalysis: true,
           analysisId: data.analysisId,
           signalHash: data.signalHash,
         }),
       });
-      if (!res.ok) throw new Error(await parseApiError(res, "Settle failed"));
       const payload = await res.json();
-      const s = payload.settlement || {};
-      // 将后端可能返回的嵌套字段映射到 Settlement 类型
-      const oproAdaptation = (s.oproAdaptation ?? s.opro_adaptation ?? null) as OproAdaptation | null;
-      setSettlement({
-        ...s,
-        finposRewards: s.finposRewards ?? s.finpos_rewards ?? undefined,
-        compositeScore: s.compositeScore ?? s.composite_score ?? undefined,
-        teeAttestation: s.teeAttestation ?? s.tee_attestation ?? undefined,
-        zktlsProof: s.zktlsProof ?? s.zktls_proof ?? undefined,
-        oproAdaptation,
-      });
+      if (!res.ok && res.status !== 502) {
+        throw new Error(await parseApiErrorBody(payload, res, "Settle failed"));
+      }
+      const { settlement: nextSettlement, oproAdaptation } = applySettlementPayload(payload);
+      setSettlement(nextSettlement);
       if (oproAdaptation) {
         setLastOpro(oproAdaptation);
         toast.warning("ATLAS-OPRO adapted the next strategy prompt.", { duration: 5200 });
@@ -182,6 +210,8 @@ export function useAnalysis() {
       setSettlementChain(payload.chain);
       if (payload.chain?.recorded) {
         toast.success("Reputation feedback settled on Mantle.", { id: toastId });
+      } else if (res.status === 502) {
+        toast.error(payload.chain?.message || "On-chain reputation write failed; local settlement preserved.", { id: toastId });
       } else {
         toast.info(payload.chain?.message || "Settlement computed locally; on-chain reputation was not written.", { id: toastId });
       }
