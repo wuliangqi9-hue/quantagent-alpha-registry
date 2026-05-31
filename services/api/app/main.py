@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import sys
+import uuid
 from pathlib import Path
-from typing import Any
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -47,11 +47,6 @@ _memory_store = AgentMemoryStore(MEMORY_STORE_PATH)
 _opro_store = AdaptiveOPROStore(ATLAS_OPRO_STORE_PATH)
 
 
-def _inject_memory() -> dict[str, Any]:
-    """Shared dependency to inject memory store into route handlers that need it."""
-    return {"memory_store": _memory_store}
-
-
 @app.get("/health")
 @app.get("/api/health", include_in_schema=False)
 async def health():
@@ -74,20 +69,22 @@ async def demo_sample(symbol: str = "BTC"):
 @app.post("/api/analyze", include_in_schema=False)
 async def analyze(body: analyze_router.AnalyzeRequest):
     result = await analyze_router.analyze(body, memory_store=_memory_store, opro_store=_opro_store)
-    signal_router.set_last_analysis(result)
+    analysis_id = result.get("analysisId") or uuid.uuid4().hex
+    result["analysisId"] = analysis_id
+    signal_router.set_last_analysis(result, analysis_id=analysis_id)
     return result
 
 
 @app.post("/record-signal")
 @app.post("/api/record-signal", include_in_schema=False)
-async def record_signal(body: signal_router.RecordSignalRequest):
-    return await signal_router.record_signal(body)
+async def record_signal(body: signal_router.RecordSignalRequest, request: Request):
+    return await signal_router.record_signal(body, request)
 
 
 @app.post("/settle")
 @app.post("/api/settle", include_in_schema=False)
-async def settle(body: signal_router.SettleRequest):
-    return await signal_router.settle(body, memory_store=_memory_store, opro_store=_opro_store)
+async def settle(body: signal_router.SettleRequest, request: Request):
+    return await signal_router.settle(body, request=request, memory_store=_memory_store, opro_store=_opro_store)
 
 
 @app.get("/agent")
@@ -104,8 +101,8 @@ async def memory_status(symbol: str | None = None):
 
 @app.post("/agent/register")
 @app.post("/api/agent/register", include_in_schema=False)
-async def agent_register(body: signal_router.AgentRegisterRequest):
-    return await signal_router.agent_register(body)
+async def agent_register(body: signal_router.AgentRegisterRequest, request: Request):
+    return await signal_router.agent_register(body, request)
 
 
 @app.get("/byreal/status")

@@ -30,11 +30,18 @@ const tooltipStyle = {
   color: "#f4f1ea",
 } as const;
 
+const shortFactorLabel = (label: string): string =>
+  label
+    .replace("Open Interest", "OI")
+    .replace("Mantle Liquidity", "M. Liquidity")
+    .replace("Mantle ", "M. ");
+
 export function FactorCharts({ factors }: Props) {
   const chartData = factors
     .filter((f) => f.score != null)
     .map((f) => ({
-      factor: f.label,
+      factor: shortFactorLabel(f.label),
+      fullLabel: f.label,
       score: f.score as number,
       mantleNative: /mantle|gas|dex|liquidity|mnt|sequencer/i.test(`${f.id} ${f.label}`),
     }));
@@ -43,8 +50,14 @@ export function FactorCharts({ factors }: Props) {
     <section className="panel span-5 factor-panel">
       <span className="section-kicker">Mantle-native factors</span>
       <h2>Factor Summary</h2>
-      <ResponsiveContainer width="100%" height={280}>
-        <RadarChart data={chartData} margin={{ top: 20, right: 42, bottom: 12, left: 42 }}>
+      <ResponsiveContainer width="100%" height={280} className="radar-chart-frame">
+        <RadarChart
+          data={chartData}
+          cx="50%"
+          cy="52%"
+          outerRadius="68%"
+          margin={{ top: 18, right: 18, bottom: 18, left: 18 }}
+        >
           <PolarGrid stroke={chartGrid} />
           <PolarAngleAxis dataKey="factor" tick={{ fill: chartMuted, fontSize: 11 }} />
           <Radar dataKey="score" stroke={chartTeal} fill={chartTeal} fillOpacity={0.18} />

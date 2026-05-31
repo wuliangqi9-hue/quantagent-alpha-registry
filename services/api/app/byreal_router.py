@@ -1,8 +1,10 @@
-import subprocess
+from __future__ import annotations
+
 import logging
 import shutil
+import subprocess
 
-from .app.config import BYREAL_PERPS_LIVE_ENABLED
+from .config import BYREAL_PERPS_LIVE_ENABLED
 
 
 logger = logging.getLogger(__name__)
@@ -112,7 +114,7 @@ async def execute_perps_order(side: str, requested_size: float, symbol: str, cap
         }
 
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=10, check=False)
         return {
             **base,
             "ok": result.returncode == 0,

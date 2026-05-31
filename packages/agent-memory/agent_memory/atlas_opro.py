@@ -95,9 +95,12 @@ class AdaptiveOPROStore:
         variants: list[PromptVariant] = []
         with self.path.open("r", encoding="utf-8") as f:
             for line in f:
+                line = line.strip()
+                if not line:
+                    continue
                 try:
                     variants.append(PromptVariant(**json.loads(line)))
-                except (TypeError, json.JSONDecodeError):
+                except (TypeError, json.JSONDecodeError, ValueError):
                     continue
         return variants
 
@@ -191,5 +194,7 @@ class AdaptiveOPROStore:
     def _write(self, variants: list[PromptVariant]) -> None:
         with self.path.open("w", encoding="utf-8") as f:
             for item in variants:
-                f.write(json.dumps(asdict(item), ensure_ascii=False, sort_keys=True))
+                data = asdict(item)
+                data["template"] = str(data.get("template", "")).replace("\r\n", "\n").replace("\r", "\n")
+                f.write(json.dumps(data, ensure_ascii=False, sort_keys=True))
                 f.write("\n")

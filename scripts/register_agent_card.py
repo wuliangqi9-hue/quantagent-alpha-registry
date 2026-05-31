@@ -15,11 +15,13 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from services.api.app.agent_card import build_agent_card  # noqa: E402
-from services.api.app.config import AGENT_CARD_BASE_URL, AGENT_URI  # noqa: E402
+from services.api.app.config import AGENT_CARD_BASE_URL, AGENT_URI, PUBLIC_API_BASE_URL  # noqa: E402
 
 
 def main() -> None:
-    base_url = AGENT_CARD_BASE_URL or os.getenv("PUBLIC_API_BASE_URL", "http://localhost:8000")
+    base_url = (AGENT_CARD_BASE_URL or os.getenv("PUBLIC_API_BASE_URL") or PUBLIC_API_BASE_URL).rstrip("/")
+    if "localhost" in base_url or "127.0.0.1" in base_url:
+        raise SystemExit("Refusing to generate a final Agent Card with a localhost base URL.")
     card = build_agent_card(base_url)
     output = {
         "mode": "preview",

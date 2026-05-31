@@ -5,7 +5,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 from fastapi import APIRouter
 
-from services.api.byreal_router import byreal_perps_health, calculate_cvar_limit, execute_perps_order
+from ..byreal_router import byreal_perps_health, calculate_cvar_limit, execute_perps_order
 
 
 router = APIRouter(tags=["byreal-perps"])

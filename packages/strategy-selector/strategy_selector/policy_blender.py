@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 import math
+import logging
 from typing import Any
 
 from .a2c_trainer import get_a2c_trainer
+
+
+logger = logging.getLogger(__name__)
 
 
 def build_state_vector(
@@ -89,6 +93,7 @@ def build_policy_output(
 
     # ---- A2C 在线通道 ----
     a2c_result: dict[str, Any] | None = None
+    a2c_error: dict[str, str] | None = None
     if mode in ("auto", "a2c"):
         try:
             a2c_trainer = get_a2c_trainer()
@@ -106,7 +111,9 @@ def build_policy_output(
                 state["reputationScore"],
             ]
             a2c_result = a2c_trainer.act(state_list, deterministic=True)
-        except Exception:
+        except Exception as exc:
+            logger.warning("A2C policy inference failed; using static policy fallback", exc_info=True)
+            a2c_error = {"type": type(exc).__name__, "message": str(exc)}
             a2c_result = None
 
     use_a2c = a2c_result is not None and a2c_result.get("active", False)
@@ -174,6 +181,14 @@ def build_policy_output(
                     f"minimum {get_a2c_trainer().cfg.min_episodes_before_active} required. "
                     "Using static linear fallback."
                 ),
+            }
+        }
+    elif a2c_error is not None:
+        a2c_fallback_note = {
+            "a2c": {
+                "active": False,
+                "error": a2c_error,
+                "note": "A2C inference failed; static linear fallback was used.",
             }
         }
 

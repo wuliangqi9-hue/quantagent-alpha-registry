@@ -20,6 +20,8 @@ from ..byreal import build_execution_intent, byreal_status
 from ..chain import get_agent_status
 from ..config import (
     CHAIN_CONFIGURED,
+    CHAIN_WRITE_AUTH_CONFIGURED,
+    AGENT_CARD_BASE_URL,
     CONTRACT_ADDRESS,
     ERC8004_IDENTITY_REGISTRY_ADDRESS,
     ERC8004_REPUTATION_REGISTRY_ADDRESS,
@@ -36,6 +38,14 @@ from ..proof_bundle import build_proof_bundle
 from ..zktls import ReclaimProofAdapter
 
 router = APIRouter(tags=["analysis"])
+
+
+def _proof_mode() -> str:
+    if not CHAIN_CONFIGURED:
+        return "demo-proof"
+    if CHAIN_WRITE_AUTH_CONFIGURED:
+        return "onchain-write-ready"
+    return "onchain-write-locked"
 
 @router.get("/demo/sample")
 async def demo_sample(symbol: str = "BTC"):
@@ -135,7 +145,7 @@ async def analyze(body: AnalyzeRequest, memory_store: Any, opro_store: Any | Non
             "identityRegistry": ERC8004_IDENTITY_REGISTRY_ADDRESS,
             "reputationRegistry": ERC8004_REPUTATION_REGISTRY_ADDRESS,
         },
-        "proofMode": "real-onchain" if CHAIN_CONFIGURED else "demo-proof",
+        "proofMode": _proof_mode(),
         "agent": agent,
         "memory": memory_context,
         "multiAgent": multi_agent_context,
@@ -143,7 +153,7 @@ async def analyze(body: AnalyzeRequest, memory_store: Any, opro_store: Any | Non
         "executionIntent": execution_intent,
         "proofBundle": proof_bundle,
         "erc8004Status": build_erc8004_status(
-            api_base="",
+            api_base=AGENT_CARD_BASE_URL,
             agent_status=agent,
             signal_hash=sig_hash,
         ),

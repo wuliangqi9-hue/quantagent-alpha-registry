@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 
 from openai import AsyncOpenAI
@@ -45,16 +47,23 @@ def _strip_markdown_code_blocks(text: str) -> str:
 
 
 async def mutate_prompt(current_prompt: str, score: float, market_context: str) -> str:
-    META_PROMPT = (
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        raise RuntimeError("OPENAI_API_KEY is not configured.")
+
+    meta_prompt = (
         f"你是一个交易优化器。智能体使用了这个提示词：{current_prompt}。"
         f"在以下市场环境中：{market_context}，它获得了 {score} 的评分。"
         "请重写提示词以修复缺陷并改进风控。只输出纯文本的新提示词。"
     )
 
-    client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+    client = AsyncOpenAI(
+        api_key=api_key,
+        timeout=float(os.getenv("OPENAI_TIMEOUT_SECONDS", "12") or "12"),
+    )
     response = await client.chat.completions.create(
-        model="gpt-4o",
-        messages=[{"role": "user", "content": META_PROMPT}],
+        model=os.getenv("OPENAI_MODEL", "gpt-4o"),
+        messages=[{"role": "user", "content": meta_prompt}],
     )
 
     content = response.choices[0].message.content or ""

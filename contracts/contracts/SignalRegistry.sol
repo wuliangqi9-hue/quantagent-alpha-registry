@@ -15,6 +15,7 @@ interface IERC721Receiver {
 contract SignalRegistry {
     string public constant name = "QuantAgent Trustless Agent";
     string public constant symbol = "QAGENT";
+    uint8 public constant VALIDATION_RESPONSE_DECIMALS = 2; // 100 = 100.00%
 
     struct Agent {
         address owner;
@@ -49,6 +50,7 @@ contract SignalRegistry {
     event Registered(uint256 indexed agentId, string agentURI, address indexed owner);
     event URIUpdated(uint256 indexed agentId, string newURI, address indexed updatedBy);
     event MetadataSet(uint256 indexed agentId, string indexed indexedMetadataKey, string metadataKey, bytes metadataValue);
+    event AgentWalletPreserved(uint256 indexed agentId, address indexed previousWallet, address indexed newOwner);
 
     event SignalRecorded(
         uint256 indexed agentId,
@@ -107,6 +109,11 @@ contract SignalRegistry {
     mapping(bytes32 => ValidationStatus) private validations;
     mapping(uint256 => bytes32[]) private agentValidationRequests;
     mapping(address => bytes32[]) private validatorRequests;
+    mapping(uint256 => bool) private reputationSnapshotExists;
+    mapping(uint256 => int128) private reputationSnapshotValue;
+    mapping(uint256 => int256) private reputationSnapshotSum;
+    mapping(uint256 => uint64) private reputationSnapshotCount;
+    mapping(uint256 => uint8) private reputationSnapshotDecimals;
 
     modifier validAgent(uint256 agentId) {
         require(agents[agentId].owner != address(0), "unknown agent");
@@ -275,6 +282,7 @@ contract SignalRegistry {
         require(status.exists, "unknown request");
         require(status.validatorAddress == msg.sender, "not validator");
         require(response <= 100, "response > 100");
+        // response is scaled to VALIDATION_RESPONSE_DECIMALS; 100 represents 100.00%.
         status.response = response;
         status.responseHash = responseHash;
         status.tag = tag;
@@ -291,8 +299,13 @@ contract SignalRegistry {
         string calldata endpoint,
         string calldata feedbackURI,
         bytes32 feedbackHash
-    ) external validAgent(agentId) {
+    ) external onlyAgentController(agentId) {
         require(valueDecimals <= 18, "too many decimals");
+        if (reputationSnapshotCount[agentId] > 0) {
+            require(valueDecimals == reputationSnapshotDecimals[agentId], "mixed decimals");
+        } else {
+            reputationSnapshotDecimals[agentId] = valueDecimals;
+        }
 
         feedbacks[agentId].push(Feedback({
             clientAddress: msg.sender,
@@ -303,6 +316,10 @@ contract SignalRegistry {
             isRevoked: false
         }));
         feedbackCountByClient[agentId][msg.sender] += 1;
+        reputationSnapshotCount[agentId] += 1;
+        reputationSnapshotSum[agentId] += value;
+        reputationSnapshotExists[agentId] = true;
+        reputationSnapshotValue[agentId] = int128(reputationSnapshotSum[agentId] / int256(uint256(reputationSnapshotCount[agentId])));
         emit NewFeedback(
             agentId,
             msg.sender,
@@ -324,16 +341,15 @@ contract SignalRegistry {
         validAgent(agentId)
         returns (uint64 count, int128 summaryValue, uint8 summaryValueDecimals)
     {
-        Feedback[] storage list = feedbacks[agentId];
-        int256 sum = 0;
-        for (uint256 i = 0; i < list.length; i++) {
-            if (!list[i].isRevoked) {
-                count += 1;
-                sum += list[i].value;
-            }
+        count = reputationSnapshotCount[agentId];
+        if (count == 0 && reputationSnapshotExists[agentId]) {
+            summaryValue = reputationSnapshotValue[agentId];
+        } else {
+            summaryValue = count == 0
+                ? int128(0)
+                : int128(reputationSnapshotSum[agentId] / int256(uint256(count)));
         }
-        summaryValue = count == 0 ? int128(0) : int128(sum / int256(uint256(count)));
-        summaryValueDecimals = 4;
+        summaryValueDecimals = reputationSnapshotDecimals[agentId];
     }
 
     function getValidationStatus(bytes32 requestHash)
@@ -393,11 +409,15 @@ contract SignalRegistry {
         balances[from] -= 1;
         balances[to] += 1;
         agents[agentId].owner = to;
-        agents[agentId].wallet = to;
+        if (agents[agentId].wallet != from) {
+            emit AgentWalletPreserved(agentId, agents[agentId].wallet, to);
+        } else {
+            agents[agentId].wallet = to;
+            emit MetadataSet(agentId, "agentWallet", "agentWallet", abi.encode(to));
+        }
         delete tokenApprovals[agentId];
 
         emit Transfer(from, to, agentId);
-        emit MetadataSet(agentId, "agentWallet", "agentWallet", abi.encode(to));
     }
 
     function _isApprovedOrOwner(address spender, uint256 agentId) private view returns (bool) {

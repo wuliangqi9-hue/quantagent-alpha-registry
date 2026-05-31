@@ -2523,6 +2523,15 @@ button:hover:not(:disabled) {
   text-shadow: 0 0 14px rgba(157, 216, 205, 0.10);
 }
 
+.radar-chart-frame {
+  margin: 0 auto;
+}
+
+.radar-chart-frame .recharts-wrapper,
+.radar-chart-frame .recharts-surface {
+  margin: 0 auto;
+}
+
 .metric-positive,
 .summary-cell.positive strong,
 .proof-state.recorded,

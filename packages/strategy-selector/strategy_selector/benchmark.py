@@ -75,11 +75,28 @@ def build_benchmark_chart(
     *,
     max_points: int = 120,
 ) -> dict[str, Any]:
+    bench = STRATEGY_BENCHMARKS.get(strategy_id, STRATEGY_BENCHMARKS["bollinger"])
+    empty_chart = {
+        "prices": [],
+        "markers": [],
+        "evidence": bench,
+        "caveats": [
+            "Backtest sample is limited to the loaded window.",
+            "Slippage and fees are not fully modeled in this demo chart.",
+            "Past regime performance does not guarantee future results.",
+        ],
+    }
+    if ohlcv_df.empty or "close" not in ohlcv_df.columns or len(ohlcv_df) < 5:
+        return empty_chart
+
     df = ohlcv_df.copy()
     if "timestamp" in df.columns:
         df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
         df = df.sort_values("timestamp")
-    close = df["close"].astype(float)
+    close = pd.to_numeric(df["close"], errors="coerce").dropna()
+    if close.empty or len(close) < 5:
+        return empty_chart
+    df = df.loc[close.index]
     if len(close) > max_points:
         close = close.iloc[-max_points:]
         df = df.iloc[-max_points:]
@@ -90,7 +107,7 @@ def build_benchmark_chart(
         "macd_bollinger": _macd_bollinger_signals,
     }
     gen = generators.get(strategy_id, _bollinger_signals)
-    signals = gen(close).fillna(0)
+    signals = gen(close).fillna(0).iloc[: len(close)]
 
     timestamps = (
         df["timestamp"].astype(str).tolist()
@@ -101,6 +118,8 @@ def build_benchmark_chart(
     markers = []
     prev = 0.0
     for i, sig in enumerate(signals):
+        if i >= len(prices) or i >= len(timestamps):
+            break
         if sig != 0 and sig != prev:
             markers.append(
                 {
@@ -111,7 +130,6 @@ def build_benchmark_chart(
             )
         prev = sig
 
-    bench = STRATEGY_BENCHMARKS.get(strategy_id, STRATEGY_BENCHMARKS["bollinger"])
     return {
         "prices": [{"timestamp": timestamps[i], "close": prices[i]} for i in range(len(prices))],
         "markers": markers[-20:],

@@ -16,15 +16,18 @@ AGENT_MEMORY_DIR = ROOT / "packages" / "agent-memory"
 AGENT_ORCHESTRATOR_DIR = ROOT / "packages" / "agent-orchestrator"
 MEMORY_STORE_PATH = Path(os.getenv("MEMORY_STORE_PATH", str(ROOT / "data" / "agent_memory.jsonl")))
 ATLAS_OPRO_STORE_PATH = Path(os.getenv("ATLAS_OPRO_STORE_PATH", str(ROOT / "data" / "atlas_opro.jsonl")))
+ANALYSIS_SESSION_DIR = Path(os.getenv("ANALYSIS_SESSION_DIR", str(ROOT / "data" / "analysis_sessions")))
 
-MANTLE_RPC_URL = os.getenv("MANTLE_RPC_URL", "https://rpc.mantle.xyz")
+MANTLE_RPC_URL = os.getenv("MANTLE_RPC_URL", "https://rpc.sepolia.mantle.xyz")
 PRIVATE_MEMPOOL_RPC_URL = os.getenv(
     "PRIVATE_MEMPOOL_RPC_URL",
     os.getenv("MANTLE_PRIVATE_MEMPOOL_RPC_URL", ""),
 )
 EFFECTIVE_MANTLE_RPC_URL = PRIVATE_MEMPOOL_RPC_URL or MANTLE_RPC_URL
-MANTLE_CHAIN_ID = int(os.getenv("MANTLE_CHAIN_ID", "5000"))
+MANTLE_CHAIN_ID = int(os.getenv("MANTLE_CHAIN_ID", "5003"))
 MANTLE_ENABLE_ONCHAIN_WRITES = os.getenv("MANTLE_ENABLE_ONCHAIN_WRITES", "false").lower() == "true"
+MANTLE_ALLOW_PUBLIC_WRITES = os.getenv("MANTLE_ALLOW_PUBLIC_WRITES", "false").lower() == "true"
+ONCHAIN_WRITE_AUTH_TOKEN = os.getenv("ONCHAIN_WRITE_AUTH_TOKEN", "")
 SIGNAL_REGISTRY_ADDRESS = os.getenv("SIGNAL_REGISTRY_ADDRESS", "")
 QUANT_AGENT_EXECUTOR_ADDRESS = os.getenv("QUANT_AGENT_EXECUTOR_ADDRESS", "")
 CONTRACT_ADDRESS = SIGNAL_REGISTRY_ADDRESS  # backward-compat alias
@@ -40,13 +43,18 @@ ERC8004_VALIDATION_REGISTRY_ADDRESS = os.getenv(
     "ERC8004_VALIDATION_REGISTRY_ADDRESS",
     "",
 )
-AGENT_CARD_BASE_URL = os.getenv("AGENT_CARD_BASE_URL", "")
+PUBLIC_API_BASE_URL = os.getenv(
+    "PUBLIC_API_BASE_URL",
+    os.getenv("AGENT_CARD_BASE_URL", "https://wuliangqi-quantagent-demo.hf.space"),
+).rstrip("/")
+AGENT_CARD_BASE_URL = os.getenv("AGENT_CARD_BASE_URL", PUBLIC_API_BASE_URL).rstrip("/")
 PRIVATE_KEY = os.getenv("MANTLE_PRIVATE_KEY", "")
 CHAIN_CONFIGURED = bool(MANTLE_ENABLE_ONCHAIN_WRITES and CONTRACT_ADDRESS and PRIVATE_KEY)
+CHAIN_WRITE_AUTH_CONFIGURED = bool(MANTLE_ALLOW_PUBLIC_WRITES or ONCHAIN_WRITE_AUTH_TOKEN)
 AGENT_ID = int(os.getenv("AGENT_ID", "0") or "0")
 AGENT_URI = os.getenv(
     "AGENT_URI",
-    "https://example.com/quantagent-alpha-registry/agent.json",
+    "https://wuliangqi-quantagent-demo.hf.space/api/agent/card",
 )
 VALIDATOR_ADDRESS = os.getenv("VALIDATOR_ADDRESS", "")
 PROOF_URI_BASE = os.getenv("PROOF_URI_BASE", "ipfs://quantagent-demo-proof")
@@ -58,7 +66,7 @@ X402_WALLET_ADDRESS = os.getenv("X402_WALLET_ADDRESS", "")
 X402_MAX_AUTO_PAY_USD = float(os.getenv("X402_MAX_AUTO_PAY_USD", "0.25") or "0.25")
 EXPLORER_BASE = os.getenv(
     "MANTLE_EXPLORER_BASE",
-    "https://explorer.mantle.xyz",
+    "https://explorer.sepolia.mantle.xyz",
 )
 # ---- TEE / Phala Network ----
 PHALA_TEE_ENABLED = os.getenv("PHALA_TEE_ENABLED", "false").lower() != "false"

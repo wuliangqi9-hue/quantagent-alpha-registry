@@ -237,6 +237,7 @@ export type ProofBundle = {
 };
 
 export type Analysis = {
+  analysisId?: string;
   symbol: string;
   mode: string;
   signalHash: string;

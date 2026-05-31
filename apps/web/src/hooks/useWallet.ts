@@ -2,8 +2,10 @@ import { useCallback, useEffect, useState } from "react";
 import { BrowserProvider, formatEther, JsonRpcSigner } from "ethers";
 import { toast } from "sonner";
 
-const MANTLE_MAINNET_CHAIN_ID = "0x1388"; // 5000 in hex
-const MANTLE_MAINNET_RPC = "https://rpc.mantle.xyz";
+const MANTLE_CHAIN_ID = (import.meta.env.VITE_MANTLE_CHAIN_ID || "0x138B").toUpperCase(); // 5003 in hex
+const MANTLE_CHAIN_NAME = import.meta.env.VITE_MANTLE_CHAIN_NAME || "Mantle Sepolia";
+const MANTLE_RPC = import.meta.env.VITE_MANTLE_RPC || "https://rpc.sepolia.mantle.xyz";
+const MANTLE_EXPLORER = import.meta.env.VITE_MANTLE_EXPLORER || "https://explorer.sepolia.mantle.xyz/";
 const MNT_SYMBOL = "MNT";
 
 export type WalletState = {
@@ -13,6 +15,7 @@ export type WalletState = {
   balance: string | null;
   signer: JsonRpcSigner | null;
   isMantle: boolean;
+  targetChainName: string;
 };
 
 declare global {
@@ -33,6 +36,7 @@ export function useWallet() {
     balance: null,
     signer: null,
     isMantle: false,
+    targetChainName: MANTLE_CHAIN_NAME,
   });
 
   const updateState = useCallback(async (provider: BrowserProvider, accounts: string[]) => {
@@ -48,7 +52,8 @@ export function useWallet() {
         chainId,
         balance,
         signer,
-        isMantle: chainId === MANTLE_MAINNET_CHAIN_ID,
+        isMantle: chainId === MANTLE_CHAIN_ID,
+        targetChainName: MANTLE_CHAIN_NAME,
       });
     } catch {
       setState((prev) => ({ ...prev, connected: false }));
@@ -77,9 +82,9 @@ export function useWallet() {
     try {
       await window.ethereum.request({
         method: "wallet_switchEthereumChain",
-        params: [{ chainId: MANTLE_MAINNET_CHAIN_ID }],
+        params: [{ chainId: MANTLE_CHAIN_ID }],
       });
-      toast.success("Switched to Mantle Mainnet.");
+      toast.success(`Switched to ${MANTLE_CHAIN_NAME}.`);
     } catch (e: unknown) {
       const err = e as { code?: number };
       if (err.code === 4902) {
@@ -88,22 +93,22 @@ export function useWallet() {
             method: "wallet_addEthereumChain",
             params: [
               {
-                chainId: MANTLE_MAINNET_CHAIN_ID,
-                chainName: "Mantle Mainnet",
-                rpcUrls: [MANTLE_MAINNET_RPC],
+                chainId: MANTLE_CHAIN_ID,
+                chainName: MANTLE_CHAIN_NAME,
+                rpcUrls: [MANTLE_RPC],
                 nativeCurrency: { name: "MNT", symbol: MNT_SYMBOL, decimals: 18 },
-                blockExplorerUrls: ["https://explorer.mantle.xyz/"],
+                blockExplorerUrls: [MANTLE_EXPLORER],
               },
             ],
           });
-          toast.success("Mantle Mainnet added to wallet.");
+          toast.success(`${MANTLE_CHAIN_NAME} added to wallet.`);
         } catch (addErr) {
           console.error("Failed to add Mantle network:", addErr);
-          toast.error("Could not add Mantle Mainnet to the wallet.");
+          toast.error(`Could not add ${MANTLE_CHAIN_NAME} to the wallet.`);
         }
       } else {
         console.error("Failed to switch network:", e);
-        toast.error("Could not switch to Mantle Mainnet.");
+        toast.error(`Could not switch to ${MANTLE_CHAIN_NAME}.`);
       }
     }
   }, []);
@@ -136,6 +141,7 @@ export function useWallet() {
           balance: null,
           signer: null,
           isMantle: false,
+          targetChainName: MANTLE_CHAIN_NAME,
         });
       } else {
         const provider = new BrowserProvider(window.ethereum!);

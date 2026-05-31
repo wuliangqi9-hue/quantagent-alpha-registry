@@ -35,7 +35,11 @@ export function MultiAgentPanel({
     selection.multiAgentContext?.reputationReport ??
     selection.reputationImpact;
   const riskReport =
-    multiAgent?.riskReport ?? selection.multiAgentContext?.riskReport;
+    multiAgent?.riskReport ??
+    selection.multiAgentContext?.riskReport ??
+    (multiAgent?.riskCriticWarnings?.length
+      ? multiAgent.riskCriticWarnings.join("\n")
+      : selection.multiAgentContext?.riskCriticWarnings?.join("\n"));
 
   const [visibleSlots, setVisibleSlots] = useState<number>(0);
 

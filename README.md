@@ -176,6 +176,8 @@ MANTLE_RPC_URL=https://rpc.sepolia.mantle.xyz
 MANTLE_CHAIN_ID=5003
 MANTLE_EXPLORER_BASE=https://explorer.sepolia.mantle.xyz
 MANTLE_ENABLE_ONCHAIN_WRITES=true
+MANTLE_ALLOW_PUBLIC_WRITES=false
+ONCHAIN_WRITE_AUTH_TOKEN=...
 MANTLE_PRIVATE_KEY=...
 SIGNAL_REGISTRY_ADDRESS=0x51e36B22FfC325CCE9d57343e187da4b28474e6e
 ERC8004_IDENTITY_REGISTRY_ADDRESS=0x38b9dC3A6E09472c2FEcCD0cACaA7DD62C7f8b26
@@ -183,6 +185,12 @@ AGENT_ID=1
 AGENT_CARD_BASE_URL=https://wuliangqi-quantagent-demo.hf.space
 AGENT_URI=https://wuliangqi-quantagent-demo.hf.space/api/agent/card
 ```
+
+`MANTLE_ENABLE_ONCHAIN_WRITES=true` means the API has a funded signer and can
+build Mantle transactions. Public deployments should keep
+`MANTLE_ALLOW_PUBLIC_WRITES=false` and use `ONCHAIN_WRITE_AUTH_TOKEN` for trusted
+write sessions. A response labeled `onchain-write-locked` means the decision and
+proof bundle were computed, but no new Mantle transaction was broadcast.
 
 Optional live intelligence and proof adapters:
 
@@ -218,6 +226,7 @@ cd ..\..\contracts && npm run compile
 
 - The public demo is configured for Mantle Sepolia. The same deployment scripts and environment variables are designed for production Mantle deployment.
 - OpenAI, Reclaim, Phala, Byreal, and x402 adapters are live-ready but require sponsor or provider credentials.
+- Deterministic proof envelopes are labeled as demo/simulated proof. They are not presented as live Reclaim zkTLS or hardware TEE verification unless credentials are configured and the adapter reports verified output.
 - The project demonstrates verifiable strategy workflow infrastructure; it does not provide investment advice or guaranteed returns.
 
 ## Judge Resources

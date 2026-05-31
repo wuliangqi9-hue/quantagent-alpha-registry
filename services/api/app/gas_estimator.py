@@ -116,7 +116,7 @@ async def estimate_gas_cost(
                 if block_data.get("result") and block_data["result"].get("baseFeePerGas"):
                     base_fee = max(base_fee, int(block_data["result"]["baseFeePerGas"], 16) / 1e9)
 
-            gas_price = (base_fee + priority_fee) * multiplier
+            gas_price = base_fee + priority_fee
 
     except Exception as exc:
         logger.warning("Gas estimation via RPC failed, using defaults: %s", exc)

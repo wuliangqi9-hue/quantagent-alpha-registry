@@ -12,7 +12,8 @@ class AnalyzeRequest(BaseModel):
 
 class RecordSignalRequest(BaseModel):
     symbol: str | None = None
-    useLastAnalysis: bool = True
+    useLastAnalysis: bool = False
+    analysisId: str | None = None
     signalHash: str | None = None
     strategyId: str | None = None
     modelVersion: str | None = None
@@ -24,7 +25,9 @@ class AgentRegisterRequest(BaseModel):
 
 
 class SettleRequest(BaseModel):
-    useLastAnalysis: bool = True
+    useLastAnalysis: bool = False
+    analysisId: str | None = None
+    signalHash: str | None = None
     exitPrice: float | None = None
 
 

@@ -141,9 +141,7 @@ async def fetch_binance_klines(symbol: str, limit: int = 500) -> pd.DataFrame:
     df = pd.DataFrame(records)
     # Live Binance klines provide only OHLCV. Do not fabricate derivative or
     # on-chain values; downstream factors will mark absent metrics as missing.
-    df["circulating_supply"] = 1.0
     df["spot_price"] = df["close"]
-    df["market_cap"] = df["close"] * 1e6
     try:
         from crypto_factors.mantle_native import fetch_mantle_metrics
 

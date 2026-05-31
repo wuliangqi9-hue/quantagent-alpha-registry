@@ -6,6 +6,10 @@ pragma solidity ^0.8.20;
 /// @dev 存储与代理身份 NFT 绑定的结构化元数据，包括功能描述、API 端点、信任模型和支付地址。
 /// 遵循 ERC-8004 规范的 tokenURI JSON schema。
 contract ERC8004AgentCard {
+    uint256 private constant MAX_PROPERTY_KEY_BYTES = 64;
+    uint256 private constant MAX_PROPERTY_VALUE_BYTES = 512;
+    uint256 private constant MAX_ENDPOINTS = 16;
+
     /// @notice 代理卡基础信息结构
     struct AgentCardInfo {
         string name;           // 代理名称
@@ -253,7 +257,12 @@ contract ERC8004AgentCard {
         onlyOwner(agentId)
         agentExists(agentId)
     {
-        _cardInfo[agentId].apiEndpoints = endpoints;
+        require(endpoints.length <= MAX_ENDPOINTS, "ERC8004AgentCard: too many endpoints");
+        delete _cardInfo[agentId].apiEndpoints;
+        for (uint256 i = 0; i < endpoints.length; i++) {
+            require(bytes(endpoints[i]).length <= 512, "ERC8004AgentCard: endpoint too long");
+            _cardInfo[agentId].apiEndpoints.push(endpoints[i]);
+        }
         _cardStatus[agentId].lastUpdatedAt = block.timestamp;
 
         emit AgentCardUpdated(agentId, "apiEndpoints", msg.sender);
@@ -292,6 +301,8 @@ contract ERC8004AgentCard {
         string calldata value
     ) external onlyOwner(agentId) agentExists(agentId) {
         require(bytes(key).length > 0, "ERC8004AgentCard: empty key");
+        require(bytes(key).length <= MAX_PROPERTY_KEY_BYTES, "ERC8004AgentCard: key too long");
+        require(bytes(value).length <= MAX_PROPERTY_VALUE_BYTES, "ERC8004AgentCard: value too long");
         _customProperties[agentId][key] = value;
         emit CustomPropertySet(agentId, key, value);
     }

@@ -12,6 +12,7 @@ cache/
 artifacts/build-info/
 data/agent_memory.jsonl
 data/atlas_opro.jsonl
+data/analysis_sessions/
 services/api/.venv/
 apps/web/node_modules/
 contracts/node_modules/

@@ -34,6 +34,7 @@ curl -X POST https://your-public-app.example.com/api/analyze \
 Important response fields:
 
 - `mode`: `live` or `offline-demo`;
+- `analysisId`: short-lived session id required by record and settle calls;
 - `signalHash`: hash of the off-chain decision report;
 - `factorSummary.factors`: chart-ready factor scores;
 - `selection.strategyName`: selected strategy;
@@ -56,7 +57,7 @@ Before final submission, this should show a configured contract and a registered
 ```bash
 curl -X POST https://your-public-app.example.com/api/record-signal \
   -H "Content-Type: application/json" \
-  -d "{\"useLastAnalysis\":true}"
+  -d "{\"useLastAnalysis\":true,\"analysisId\":\"<analysisId-from-analyze>\",\"signalHash\":\"<signalHash-from-analyze>\"}"
 ```
 
 If Mantle credentials are configured, this returns an explorer URL. Otherwise it
@@ -70,7 +71,7 @@ With `AGENT_ID` and `VALIDATOR_ADDRESS` configured, `registryLayer` should be
 ```bash
 curl -X POST https://your-public-app.example.com/api/settle \
   -H "Content-Type: application/json" \
-  -d "{\"useLastAnalysis\":true}"
+  -d "{\"useLastAnalysis\":true,\"analysisId\":\"<analysisId-from-analyze>\",\"signalHash\":\"<signalHash-from-analyze>\"}"
 ```
 
 This compares the latest benchmark-window price movement against the signal

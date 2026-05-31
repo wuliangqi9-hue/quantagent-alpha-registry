@@ -82,6 +82,25 @@ def _tanh_clip(x: float) -> float:
     return max(-1.0, min(1.0, math.tanh(x)))
 
 
+def _entropy_logits_gradient(probs: list[float]) -> list[float]:
+    """Return dH/dz for H=-sum(p*log(p)) through a softmax layer.
+
+    This trainer is intentionally framework-free, so entropy regularization
+    needs the explicit softmax Jacobian instead of a shortcut on the selected
+    action gradient.
+    """
+    safe_probs = [max(p, 1e-12) for p in probs]
+    log_terms = [math.log(p) + 1.0 for p in safe_probs]
+    grads: list[float] = []
+    for j, p_j in enumerate(safe_probs):
+        grad_j = 0.0
+        for i, p_i in enumerate(safe_probs):
+            jacobian = p_i * ((1.0 if i == j else 0.0) - p_j)
+            grad_j -= log_terms[i] * jacobian
+        grads.append(grad_j)
+    return grads
+
+
 def _init_weights(rows: int, cols: int, scale: float = 0.1) -> list[list[float]]:
     """Xavier 风格的均匀初始化（简化版）。"""
     import random
@@ -342,42 +361,30 @@ class A2CTrainer:
         critic_loss = advantage * advantage  # MSE loss
 
         # -------- Actor 更新 (策略梯度 + 熵奖励) --------
-        prev_probs, prev_actor_hidden, _ = self._forward_actor(self.prev_state)
-        # 策略梯度: ∇log π(a|s) * advantage
-        # 对于交叉熵风格的离散动作: -advantage * (1 - prob[a]) for selected action
+        prev_probs, prev_actor_hidden, prev_entropy = self._forward_actor(self.prev_state)
+        # Loss = -log(pi(a|s))*A - beta*H(pi).  For softmax logits:
+        # dL/dz_j = A * (p_j - 1{j=a}) - beta * dH/dz_j.
         prev_actor_hidden_raw = _vec_add(
             _mat_vec_mul(self.actor_w1, self.prev_state), self.actor_b1
         )
+        entropy_grad = _entropy_logits_gradient(prev_probs)
+        output_grad: list[float] = []
+        for a in range(self.cfg.action_dim):
+            target = 1.0 if a == self.prev_action_idx else 0.0
+            output_grad.append(advantage * (prev_probs[a] - target) - self.cfg.entropy_coef * entropy_grad[a])
+        actor_w2_before = [row[:] for row in self.actor_w2]
 
         # actor_w2 梯度直接应用到权重，避免保存完整梯度矩阵。
         for a in range(self.cfg.action_dim):
-            grad_factor = advantage
-            if a == self.prev_action_idx:
-                # 对于选中的动作: 梯度 = advantage * (1 - prob[a])
-                grad_factor *= (1.0 - prev_probs[a])
-            else:
-                # 对于未选中的动作: 梯度 = -advantage * prob[a]
-                grad_factor *= -prev_probs[a]
-            # 加上熵正则化项
-            if prev_probs[a] > 1e-12:
-                grad_factor -= self.cfg.entropy_coef * (math.log(prev_probs[a]) + 1.0)
-
             for h in range(self.cfg.hidden_dim):
-                self.actor_w2[a][h] -= self.cfg.actor_lr * grad_factor * prev_actor_hidden[h]
-            self.actor_b2[a] -= self.cfg.actor_lr * grad_factor
+                self.actor_w2[a][h] -= self.cfg.actor_lr * output_grad[a] * prev_actor_hidden[h]
+            self.actor_b2[a] -= self.cfg.actor_lr * output_grad[a]
 
         # actor_w1 和 b1 梯度 (relu 反向传播)
         factor_sum = [0.0] * self.cfg.hidden_dim
         for a in range(self.cfg.action_dim):
-            grad_factor = advantage
-            if a == self.prev_action_idx:
-                grad_factor *= (1.0 - prev_probs[a])
-            else:
-                grad_factor *= -prev_probs[a]
-            if prev_probs[a] > 1e-12:
-                grad_factor -= self.cfg.entropy_coef * (math.log(prev_probs[a]) + 1.0)
             for h in range(self.cfg.hidden_dim):
-                factor_sum[h] += grad_factor * self.actor_w2[a][h]
+                factor_sum[h] += output_grad[a] * actor_w2_before[a][h]
 
         for i in range(self.cfg.hidden_dim):
             if prev_actor_hidden_raw[i] > 0:
@@ -387,7 +394,7 @@ class A2CTrainer:
 
         # 计算 actor loss（负对数概率 × advantage + 熵惩罚）
         selected_prob = max(prev_probs[self.prev_action_idx], 1e-12)
-        actor_loss = -math.log(selected_prob) * advantage - self.cfg.entropy_coef * self.last_policy_entropy
+        actor_loss = -math.log(selected_prob) * advantage - self.cfg.entropy_coef * prev_entropy
 
         # -------- 状态更新 --------
         probs_new, _, entropy_new = self._forward_actor(current_state)
@@ -428,14 +435,14 @@ class A2CTrainer:
             "last_td_error": self.last_td_error,
             "last_advantage": self.last_advantage,
             "last_policy_entropy": self.last_policy_entropy,
-            "actor_w1": [[round(w, 8) for w in row] for row in self.actor_w1],
-            "actor_b1": [round(b, 8) for b in self.actor_b1],
-            "actor_w2": [[round(w, 8) for w in row] for row in self.actor_w2],
-            "actor_b2": [round(b, 8) for b in self.actor_b2],
-            "critic_w1": [[round(w, 8) for w in row] for row in self.critic_w1],
-            "critic_b1": [round(b, 8) for b in self.critic_b1],
-            "critic_w2": [[round(w, 8) for w in row] for row in self.critic_w2],
-            "critic_b2": [round(b, 8) for b in self.critic_b2],
+            "actor_w1": self.actor_w1,
+            "actor_b1": self.actor_b1,
+            "actor_w2": self.actor_w2,
+            "actor_b2": self.actor_b2,
+            "critic_w1": self.critic_w1,
+            "critic_b1": self.critic_b1,
+            "critic_w2": self.critic_w2,
+            "critic_b2": self.critic_b2,
             "config": self.cfg.to_dict(),
             "saved_at": int(time.time()),
         }

@@ -5,10 +5,14 @@ import type { Analysis, ChainResult, FinposRewards, OproAdaptation, Settlement, 
 const shortHash = (value: string | null | undefined): string =>
   value ? `${value.slice(0, 10)}…${value.slice(-8)}` : "Not configured";
 
+const DEFAULT_EXPLORER =
+  import.meta.env.VITE_MANTLE_EXPLORER || "https://explorer.sepolia.mantle.xyz";
+
 const proofLabel = (chain: ChainResult | null, hasContract: boolean): string => {
   if (chain?.recorded) return "Recorded on Mantle";
   if (chain?.error) return "On-chain attempt failed";
   if (chain?.mock || chain?.proofMode === "demo-proof" || !hasContract) return "Demo-proof mode";
+  if (chain?.proofMode === "write-locked") return "On-chain writes locked";
   return "Ready to record";
 };
 
@@ -62,10 +66,10 @@ const TeeAttestationRow = ({ tee }: { tee?: TeeAttestation }) => {
             animate={{ opacity: [1, 0.5, 1] }}
             transition={{ duration: 2, repeat: Infinity }}
           >
-            Attestation verified
+            Hardware attestation verified
           </motion.span>
         ) : (
-          "Attestation pending"
+          "Simulated attestation"
         )}
       </div>
       <div className="metric">
@@ -92,10 +96,10 @@ const ZktlsProofRow = ({ proof }: { proof?: ZktlsProof }) => {
             animate={{ opacity: [1, 0.5, 1] }}
             transition={{ duration: 2, repeat: Infinity }}
           >
-            Zero-knowledge proof verified
+            Live zkTLS proof verified
           </motion.span>
         ) : (
-          "ZK proof pending"
+          "Simulated zkTLS proof"
         )}
       </div>
       <div className="metric">
@@ -184,16 +188,16 @@ export function MantleProofPanel({
   const handleSign = useCallback(async () => {
     if (!walletConnected || !signMessage) return;
     setSigning(true);
-    const msg = `QuantAgent Attestation\nSignal: ${data.signalHash}\nModel: ${data.modelVersion}\nSchema: ${data.reportSchema}`;
+    const msg = `QuantAgent Local Evidence Signature\nSignal: ${data.signalHash}\nModel: ${data.modelVersion}\nSchema: ${data.reportSchema}`;
     const sig = await signMessage(msg);
     setSignature(sig);
     setSigning(false);
   }, [walletConnected, signMessage, data.signalHash, data.modelVersion, data.reportSchema]);
 
   const explorerUrl = chain?.txHash
-    ? `${data.explorerBase || "https://explorer.mantle.xyz"}/tx/${chain.txHash}`
+    ? `${data.explorerBase || DEFAULT_EXPLORER}/tx/${chain.txHash}`
     : settlementChain?.txHash
-      ? `${data.explorerBase || "https://explorer.mantle.xyz"}/tx/${settlementChain.txHash}`
+      ? `${data.explorerBase || DEFAULT_EXPLORER}/tx/${settlementChain.txHash}`
       : null;
 
   return (
@@ -254,8 +258,8 @@ export function MantleProofPanel({
         <strong className="metric-small">{data.reportSchema || "legacy-report"}</strong>
       </div>
       <div className="metric">
-        <span>API proof mode</span>
-        <strong className="metric-small">{data.proofMode || "demo-proof"}</strong>
+          <span>API write mode</span>
+          <strong className="metric-small">{data.proofMode || "demo-proof"}</strong>
       </div>
 
       {(settlement?.proofBundleHash || data.proofBundle?.proofBundleHash) && (
@@ -375,7 +379,7 @@ export function MantleProofPanel({
           <ZktlsProofRow proof={settlement.zktlsProof} />
           <OproAdaptationRow opro={settlement.oproAdaptation} />
           <div className={`proof-state ${settlementChain?.recorded ? "recorded" : "demo"}`}>
-            {settlementChain?.recorded ? "Reputation written" : "Reputation demo"}
+            {settlementChain?.recorded ? "Reputation written" : "Reputation not written on-chain"}
           </div>
         </>
       )}
@@ -389,7 +393,7 @@ export function MantleProofPanel({
           onClick={handleSign}
           disabled={!walletConnected || signing}
         >
-          {signing ? "Signing…" : signature ? "Re-sign attestation" : "Sign attestation"}
+          {signing ? "Signing…" : signature ? "Re-sign local evidence" : "Sign local evidence"}
         </button>
         {signature && (
           <div className="hash signature-hash">
@@ -407,7 +411,7 @@ export function MantleProofPanel({
         </button>
       )}
       <p className="note">
-        The signal hash is computed from this canonical decision report.
+        The signal hash is computed from the canonical decision report. Wallet signatures are local evidence unless they are submitted with a Mantle transaction.
       </p>
     </section>
   );

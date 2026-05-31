@@ -4,6 +4,7 @@ from pathlib import Path
 import os
 import sys
 import tempfile
+import subprocess
 
 from fastapi.testclient import TestClient
 
@@ -20,6 +21,7 @@ for secret_key in (
     os.environ.pop(secret_key, None)
 os.environ.setdefault("MEMORY_STORE_PATH", str(TEST_DATA_DIR / "agent_memory.jsonl"))
 os.environ.setdefault("ATLAS_OPRO_STORE_PATH", str(TEST_DATA_DIR / "atlas_opro.jsonl"))
+os.environ.setdefault("ANALYSIS_SESSION_DIR", str(TEST_DATA_DIR / "analysis_sessions"))
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "packages" / "factor-engine"))
 sys.path.insert(0, str(ROOT / "packages" / "strategy-selector"))
@@ -27,7 +29,7 @@ sys.path.insert(0, str(ROOT / "packages" / "agent-memory"))
 sys.path.insert(0, str(ROOT / "packages" / "agent-orchestrator"))
 
 from services.api.app.main import app  # noqa: E402
-from services.api.byreal_router import calculate_cvar_limit  # noqa: E402
+from services.api.app.byreal_router import calculate_cvar_limit  # noqa: E402
 
 
 client = TestClient(app)
@@ -68,13 +70,21 @@ def test_offline_demo_flow_for_supported_assets() -> None:
         analysis_body = analysis.json()
         assert analysis_body["symbol"] == symbol
         assert analysis_body["mode"] == "offline-demo"
+        assert analysis_body["analysisId"]
         assert analysis_body["signalHash"].startswith("0x")
         assert analysis_body["selection"]["policy"]["schema"] == "quantagent.policy-blender.v1"
         assert analysis_body["executionIntent"]["routeDecision"]["schema"] == "quantagent.route-decision.v1"
         assert analysis_body["proofBundle"]["proofBundleHash"].startswith("0x")
         assert analysis_body["erc8004Status"]["identity"]["agentRegistry"].startswith("eip155:")
 
-        record = client.post("/api/record-signal", json={"useLastAnalysis": True})
+        record = client.post(
+            "/api/record-signal",
+            json={
+                "useLastAnalysis": True,
+                "analysisId": analysis_body["analysisId"],
+                "signalHash": analysis_body["signalHash"],
+            },
+        )
         if os.getenv("SIGNAL_REGISTRY_ADDRESS") and os.getenv("MANTLE_PRIVATE_KEY"):
             assert record.status_code == 200, record.text
             assert record.json()["signalHash"] == analysis_body["signalHash"]
@@ -82,7 +92,14 @@ def test_offline_demo_flow_for_supported_assets() -> None:
             assert record.status_code == 503, record.text
             assert record.json()["detail"]["code"] == "mantle-config-required"
 
-        settle = client.post("/api/settle", json={"useLastAnalysis": True})
+        settle = client.post(
+            "/api/settle",
+            json={
+                "useLastAnalysis": True,
+                "analysisId": analysis_body["analysisId"],
+                "signalHash": analysis_body["signalHash"],
+            },
+        )
         assert settle.status_code == 200, settle.text
         settle_body = settle.json()
         settlement = settle_body["settlement"]
@@ -93,3 +110,32 @@ def test_offline_demo_flow_for_supported_assets() -> None:
         assert settlement["proofBundleHash"].startswith("0x")
         assert settlement["proofBundle"]["proofBundleHash"] == settlement["proofBundleHash"]
         assert settle_body["chain"]["standardReputationFeedback"]["schema"] == "erc8004.reputation-feedback.v1"
+
+
+def test_analysis_session_rejects_signal_hash_mismatch() -> None:
+    analysis = client.post("/api/analyze", json={"symbol": "BTC", "mode": "offline-demo"})
+    assert analysis.status_code == 200, analysis.text
+    body = analysis.json()
+
+    settle = client.post(
+        "/api/settle",
+        json={
+            "useLastAnalysis": True,
+            "analysisId": body["analysisId"],
+            "signalHash": "0x" + "11" * 32,
+        },
+    )
+    assert settle.status_code == 409
+
+
+def test_api_imports_from_services_api_workdir() -> None:
+    result = subprocess.run(
+        [sys.executable, "-c", "import app.main; print('ok')"],
+        cwd=ROOT / "services" / "api",
+        capture_output=True,
+        text=True,
+        timeout=20,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "ok" in result.stdout

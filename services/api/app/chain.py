@@ -6,6 +6,7 @@ from typing import Any
 from .config import (
     AGENT_ID,
     AGENT_URI,
+    CHAIN_WRITE_AUTH_CONFIGURED,
     CONTRACT_ADDRESS,
     EFFECTIVE_MANTLE_RPC_URL,
     EXPLORER_BASE,
@@ -131,6 +132,11 @@ def _web3_context() -> tuple[Any, Any, Any, Any]:
     w3 = Web3(Web3.HTTPProvider(EFFECTIVE_MANTLE_RPC_URL))
     if not w3.is_connected():
         raise RuntimeError(f"Cannot connect to Mantle RPC: {EFFECTIVE_MANTLE_RPC_URL}")
+    actual_chain_id = int(w3.eth.chain_id)
+    if actual_chain_id != MANTLE_CHAIN_ID:
+        raise RuntimeError(
+            f"Mantle RPC chainId mismatch: expected {MANTLE_CHAIN_ID}, got {actual_chain_id}."
+        )
     account = w3.eth.account.from_key(PRIVATE_KEY)
     contract = w3.eth.contract(address=Web3.to_checksum_address(CONTRACT_ADDRESS), abi=_load_abi())
     return Web3, w3, account, contract
@@ -141,10 +147,21 @@ def _proof_hash(Web3: Any, payload: dict[str, Any]) -> bytes:
     return Web3.keccak(text=canonical)
 
 
+def _signal_hash_bytes(Web3: Any, signal_hash: str) -> bytes:
+    if not isinstance(signal_hash, str) or not signal_hash.startswith("0x"):
+        raise ValueError("signalHash must be a 0x-prefixed bytes32 hex string.")
+    hash_bytes = Web3.to_bytes(hexstr=signal_hash)
+    if len(hash_bytes) != 32:
+        raise ValueError("signalHash must decode to exactly 32 bytes.")
+    if hash_bytes == b"\x00" * 32:
+        raise ValueError("signalHash cannot be zero.")
+    return hash_bytes
+
+
 def _build_dynamic_transaction(w3: Any, account: Any, fn: Any) -> dict[str, Any]:
     base = {
         "from": account.address,
-        "nonce": w3.eth.get_transaction_count(account.address),
+        "nonce": w3.eth.get_transaction_count(account.address, "pending"),
         "chainId": MANTLE_CHAIN_ID,
     }
     try:
@@ -203,6 +220,7 @@ def get_agent_status() -> dict[str, Any]:
         "contractAddress": CONTRACT_ADDRESS,
         "proofMode": "real-onchain" if chain_ready() else "demo-proof",
         "privateMempoolConfigured": bool(PRIVATE_MEMPOOL_RPC_URL),
+        "onchainWriteUnlocked": bool(chain_ready() and CHAIN_WRITE_AUTH_CONFIGURED),
     }
     if not chain_ready() or AGENT_ID <= 0:
         return status
@@ -258,7 +276,7 @@ def record_signal_on_chain(
         raise RuntimeError("Set both SIGNAL_REGISTRY_ADDRESS and MANTLE_PRIVATE_KEY to submit on-chain.")
 
     Web3, w3, account, contract = _web3_context()
-    hash_bytes = Web3.to_bytes(hexstr=signal_hash)
+    hash_bytes = _signal_hash_bytes(Web3, signal_hash)
     proof_payload = decision_report or {
         "signalHash": signal_hash,
         "symbol": symbol,
@@ -269,22 +287,23 @@ def record_signal_on_chain(
     proof_hash = _proof_hash(Web3, proof_payload)
     proof_uri = f"{PROOF_URI_BASE}/{signal_hash}"
 
-    if AGENT_ID > 0 and VALIDATOR_ADDRESS:
-        fn = contract.functions.recordSignalForAgent(
-            AGENT_ID,
-            hash_bytes,
-            symbol,
-            strategy_id,
-            model_version,
-            mode,
-            Web3.to_checksum_address(VALIDATOR_ADDRESS),
-            proof_uri,
-            proof_hash,
-        )
-        layer = "identity+validation"
-    else:
-        fn = contract.functions.recordSignal(hash_bytes, symbol, strategy_id, model_version, mode)
-        layer = "legacy-signal"
+    if AGENT_ID <= 0:
+        raise RuntimeError("AGENT_ID is required for final Mantle signal recording; legacy anonymous signal writes are disabled.")
+    if not VALIDATOR_ADDRESS:
+        raise RuntimeError("VALIDATOR_ADDRESS is required for ERC-8004 validation request recording.")
+
+    fn = contract.functions.recordSignalForAgent(
+        AGENT_ID,
+        hash_bytes,
+        symbol,
+        strategy_id,
+        model_version,
+        mode,
+        Web3.to_checksum_address(VALIDATOR_ADDRESS),
+        proof_uri,
+        proof_hash,
+    )
+    layer = "identity+validation"
 
     receipt = _send_transaction(w3, account, fn)
     receipt.update(
@@ -297,14 +316,12 @@ def record_signal_on_chain(
             "strategyId": strategy_id,
             "modelVersion": model_version,
             "agentId": AGENT_ID or None,
-            "proofURI": proof_uri if layer == "identity+validation" else None,
+            "proofURI": proof_uri,
             "proofHash": proof_hash.hex(),
             "registryLayer": layer,
             "privateMempoolConfigured": bool(PRIVATE_MEMPOOL_RPC_URL),
         }
     )
-    if layer == "legacy-signal":
-        receipt["message"] = "Set AGENT_ID and VALIDATOR_ADDRESS to use the ERC-8004-inspired validation path."
     return receipt
 
 

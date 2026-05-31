@@ -50,12 +50,14 @@ def calculate_market_factors(df: pd.DataFrame, window: int = 720) -> pd.DataFram
         raise ValueError(f"Missing required OHLCV columns: {sorted(missing)}")
 
     out = df.copy()
+    safe_close = out["close"].replace(0.0, np.nan)
+    safe_low = out["low"].replace(0.0, np.nan)
     safe_volume = out["volume"].replace(0.0, np.nan)
-    amount = out["close"] * safe_volume
+    amount = (safe_close * safe_volume).replace(0.0, np.nan)
     returns = out["close"].pct_change()
 
     if "circulating_supply" in out.columns:
-        out["f_size"] = np.log1p(out["close"] * out["circulating_supply"])
+        out["f_size"] = np.log1p(safe_close * out["circulating_supply"])
     else:
         out["f_size_proxy"] = np.log1p(amount)
 
@@ -68,17 +70,18 @@ def calculate_market_factors(df: pd.DataFrame, window: int = 720) -> pd.DataFram
     out["f_liquidity_amount_ma"] = amount.rolling(window, min_periods=max(2, window // 2)).mean()
 
     atr = _atr(out["high"], out["low"], out["close"], length=14)
-    out["f_volatility_natr_14"] = atr / out["close"].replace(0.0, np.nan)
+    out["f_volatility_natr_14"] = atr / safe_close
     out["f_volatility_return_std_window"] = returns.rolling(
         window, min_periods=max(2, window // 2)
     ).std()
 
     ma20 = out["close"].rolling(20, min_periods=20).mean()
     out["f_trend_close_ma20_gap"] = out["close"] / ma20 - 1.0
+    low_24h = safe_low.rolling(24, min_periods=12).min().replace(0.0, np.nan)
     out["f_range_high_low_24h"] = (
         out["high"].rolling(24, min_periods=12).max()
-        / out["low"].rolling(24, min_periods=12).min()
+        / low_24h
         - 1.0
     )
 
-    return out
+    return out.replace([np.inf, -np.inf], np.nan)

@@ -302,9 +302,38 @@ class AgentOrchestrator:
         # ---- 主动探索提示（AlphaQuanter RL 动态 API 调用中心）----
         exploration_hints: dict[str, Any] | None = None
         if a2c_decision.explorationNeeded:
+            raw_columns = {
+                str(fid)
+                for fid in factor_summary.get("rawFactorColumns", [])
+            }
+            snapshot_keys = set(state.factor_snapshot)
+            available_factor_keys = raw_columns | snapshot_keys
+            factor_aliases = {
+                "orderbook_micro": {
+                    "orderbook_micro",
+                    "orderbook",
+                    "spread",
+                    "bid_ask",
+                    "f_orderbook_imbalance",
+                },
+                "liquidity_depth": {
+                    "liquidity_depth",
+                    "liquidity",
+                    "volume",
+                    "f_liquidity_amount_ma_zscore_safe",
+                    "f_mantle_dex_depth_zscore",
+                    "f_mantle_dex_liquidity_ratio",
+                },
+                "sentiment": {
+                    "sentiment",
+                    "market_sentiment",
+                    "news_sentiment",
+                    "social_sentiment",
+                },
+            }
             missing_factors = [
-                fid for fid in ("orderbook_micro", "liquidity_depth", "sentiment")
-                if fid not in state.factor_snapshot
+                fid for fid, aliases in factor_aliases.items()
+                if not any(alias in available_factor_keys for alias in aliases)
             ]
             exploration_hints = {
                 "trigger": "low-a2c-confidence",

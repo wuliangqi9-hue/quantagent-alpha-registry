@@ -33,8 +33,13 @@ function buildTerminalMessages(analysis: Analysis | null): TerminalMessage[] {
   if (s.multiAgentContext?.reputationReport || s.reputationImpact) {
     msgs.push({ id: id++, agent: "Reputation", text: s.multiAgentContext?.reputationReport ?? s.reputationImpact ?? "", time: timeStamp() });
   }
-  if (s.multiAgentContext?.riskReport) {
-    msgs.push({ id: id++, agent: "Risk", text: s.multiAgentContext.riskReport, time: timeStamp() });
+  const riskText =
+    s.multiAgentContext?.riskReport ||
+    (s.multiAgentContext?.riskCriticWarnings?.length
+      ? s.multiAgentContext.riskCriticWarnings.join("\n")
+      : "");
+  if (riskText) {
+    msgs.push({ id: id++, agent: "Risk", text: riskText, time: timeStamp() });
   }
   if (s.directionDecision?.reasoning) {
     msgs.push({ id: id++, agent: "Direction", text: s.directionDecision.reasoning, time: timeStamp() });
@@ -52,6 +57,10 @@ function buildTerminalMessages(analysis: Analysis | null): TerminalMessage[] {
 async function parseApiError(res: Response, fallback: string): Promise<string> {
   const body = await res.json().catch(() => null);
   if (body && typeof body.detail === "string") return body.detail;
+  if (body && body.detail && typeof body.detail === "object") {
+    const detail = body.detail as { code?: string; message?: string };
+    return detail.message || detail.code || `${fallback} (${res.status})`;
+  }
   if (body && typeof body.error === "string") return body.error;
   return `${fallback} (${res.status})`;
 }
@@ -115,7 +124,11 @@ export function useAnalysis() {
       const res = await fetch(`${API_BASE}/record-signal`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ useLastAnalysis: true }),
+        body: JSON.stringify({
+          useLastAnalysis: true,
+          analysisId: data.analysisId,
+          signalHash: data.signalHash,
+        }),
       });
       if (!res.ok) throw new Error(await parseApiError(res, "Record failed"));
       const payload = await res.json();
@@ -123,7 +136,7 @@ export function useAnalysis() {
       if (payload.chain?.recorded) {
         toast.success("Signal recorded on Mantle. Explorer link is ready.", { id: toastId });
       } else {
-        toast.info(payload.chain?.message || "Signal prepared in proof-safe demo mode.", { id: toastId });
+        toast.info(payload.chain?.message || "Signal is not on-chain yet. Check write-lock or Mantle config.", { id: toastId });
       }
     } catch (e) {
       const message = e instanceof Error ? e.message : "Unknown error";
@@ -143,7 +156,11 @@ export function useAnalysis() {
       const res = await fetch(`${API_BASE}/settle`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ useLastAnalysis: true }),
+        body: JSON.stringify({
+          useLastAnalysis: true,
+          analysisId: data.analysisId,
+          signalHash: data.signalHash,
+        }),
       });
       if (!res.ok) throw new Error(await parseApiError(res, "Settle failed"));
       const payload = await res.json();
@@ -166,7 +183,7 @@ export function useAnalysis() {
       if (payload.chain?.recorded) {
         toast.success("Reputation feedback settled on Mantle.", { id: toastId });
       } else {
-        toast.info("Settlement computed; on-chain reputation is waiting for live registry config.", { id: toastId });
+        toast.info(payload.chain?.message || "Settlement computed locally; on-chain reputation was not written.", { id: toastId });
       }
     } catch (e) {
       const message = e instanceof Error ? e.message : "Unknown error";

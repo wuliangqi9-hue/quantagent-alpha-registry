@@ -24,6 +24,9 @@ MVP_FACTOR_LABELS = {
     "volume": "f_liquidity_amount_ma_zscore_safe",
     "funding": "f_funding_rate_zscore_safe",
     "open_interest": "f_oi_momentum_24h_zscore_safe",
+    "mantle_gas": "f_mantle_l2_gas_congestion_zscore_safe",
+    "mantle_liquidity": "f_mantle_dex_liquidity_ratio_zscore_safe",
+    "mantle_tvl": "f_mantle_tvl_growth_7_zscore_safe",
 }
 
 
@@ -65,6 +68,9 @@ def compute_factor_summary(
         "volume": "Volume-backed moves are treated as more credible than thin moves.",
         "funding": "Extreme funding can indicate crowded positioning and squeeze risk.",
         "open_interest": "Rising OI during sharp moves can increase liquidation fragility.",
+        "mantle_gas": "Mantle L2 gas pressure affects whether expected alpha survives execution costs.",
+        "mantle_liquidity": "Mantle DEX liquidity depth indicates whether Byreal/CLMM routes can absorb the position.",
+        "mantle_tvl": "Mantle TVL growth is used as an ecosystem health signal for route confidence.",
     }
 
     for key, col in MVP_FACTOR_LABELS.items():

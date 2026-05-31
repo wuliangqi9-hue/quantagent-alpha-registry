@@ -71,7 +71,7 @@ export function HeaderPanel({
           ) : (
             <div className="wallet-info">
               <div className={`chain-indicator ${chainBadge}`}>
-                {wallet.isMantle ? "Mantle Mainnet" : "Wrong Network"}
+                {wallet.isMantle ? wallet.targetChainName : "Wrong Network"}
               </div>
               <div className="wallet-address">{shortAddr(wallet.address)}</div>
               <div className="wallet-balance">
@@ -79,7 +79,7 @@ export function HeaderPanel({
               </div>
               {!wallet.isMantle && (
                 <button className="secondary switch-btn" onClick={onSwitchChain}>
-                  Switch to Mantle
+                  Switch to {wallet.targetChainName}
                 </button>
               )}
             </div>

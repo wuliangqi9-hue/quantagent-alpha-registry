@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import sys
 from pathlib import Path
 from typing import Any
@@ -11,6 +12,8 @@ from strategy_selector.a2c_trainer import get_a2c_trainer  # noqa: E402
 from strategy_selector.policy_blender import build_state_vector  # noqa: E402
 from strategy_selector.finpos_rewards import compute_reward_for_a2c  # noqa: E402
 from strategy_selector.finpos_rewards import RewardWindow as FinPosRewardWindow  # noqa: E402
+
+logger = logging.getLogger(__name__)
 
 __all__ = [
     "FinPosRewardWindow",
@@ -34,7 +37,7 @@ def run_a2c_training_step(
 ) -> dict[str, Any] | None:
     """从 settlement payload 提取状态并执行一次 A2C 训练步骤。
 
-    返回训练指标 dict，失败返回 None（不阻塞上游流程）。
+    返回训练指标 dict，失败返回带 error 字段的诊断对象（不阻塞上游流程）。
     """
     try:
         factor_snapshot_raw = (payload.get("factorSummary") or {}).get("factors", [])
@@ -46,38 +49,96 @@ def run_a2c_training_step(
                 except (TypeError, ValueError):
                     pass
 
-        state_vector = build_state_vector(
-            symbol=symbol,
-            factors=factor_snapshot_map,
-            regime=(payload.get("regime") or {}).get("regime", "normal"),
-            volatility=float((payload.get("regime") or {}).get("volatilityMultiplier", 1.0)),
-            current_exposure_pct=float((agent.get("wallet") or {}).get("exposurePct", 0.0)),
-            spread_bps=float((agent.get("wallet") or {}).get("spreadBps", 1.5)),
-        )
+        memory_context = payload.get("memory")
+        if not isinstance(memory_context, dict):
+            memory_context = None
 
-        reward_window = FinPosRewardWindow(
-            immediate_pnl_bps=float(getattr(finpos_rewards, "immediate_pnl_bps", 0.0)),
-            cumulative_pnl_bps=float(getattr(finpos_rewards, "cumulative_pnl_bps", 0.0)),
-            direction_correct=bool(getattr(finpos_rewards, "direction_correct", False)),
-            exposure_util=float(getattr(finpos_rewards, "exposure_util", 0.5)),
-            volatility_regime=float(getattr(finpos_rewards, "volatility_regime", 1.0)),
+        state_vector_dict = build_state_vector(
+            factors=factor_snapshot_map,
+            memory_context=memory_context,
+            agent_reputation=agent.get("reputation") if isinstance(agent, dict) else None,
+        )
+        state_vector = list(state_vector_dict.values())
+
+        reward_window = FinPosRewardWindow()
+        for pnl in _historical_pnl_series(memory_context):
+            reward_window.push(pnl)
+
+        immediate_pnl_bps = _safe_float(
+            getattr(finpos_rewards, "immediate_pnl_bps", None),
+            _safe_float(payload.get("pnlBps"), 0.0),
         )
         a2c_reward = compute_reward_for_a2c(
-            window=reward_window,
-            composite_score=float(getattr(finpos_rewards, "composite_score", 0.0)),
+            immediate_pnl_bps=immediate_pnl_bps,
+            memory_context=memory_context,
+            reward_window=reward_window,
+        )
+        reward = _safe_float(
+            getattr(finpos_rewards, "composite_score", None),
+            _safe_float(a2c_reward.get("composite_score"), 0.0),
         )
 
         trainer = get_a2c_trainer(checkpoint_dir=checkpoint_dir)
-        action_idx = payload.get("selection", {}).get("actionIdx", 0)
-        if isinstance(action_idx, str):
-            action_map: dict[str, int] = {"buy": 0, "sell": 1, "hold": 2, "long": 0, "short": 1}
-            action_idx = action_map.get(action_idx.lower(), 2)
-        action_idx = int(action_idx)
+        action_idx = _selection_action_idx(payload.get("selection", {}))
 
-        return trainer.step(
-            state_vector=state_vector,
-            action_idx=action_idx,
-            reward=a2c_reward,
+        result = trainer.step(
+            current_state=state_vector,
+            current_action_idx=action_idx,
+            reward=reward,
         )
-    except Exception:
-        return None
+        result["stateVector"] = state_vector_dict
+        result["reward"] = reward
+        result["finposReward"] = a2c_reward
+        result["symbol"] = symbol.upper()
+        return result
+    except Exception as exc:
+        logger.exception("A2C online training step failed")
+        return {
+            "schema": "quantagent.a2c-training-error.v1",
+            "trained": False,
+            "errorType": type(exc).__name__,
+            "error": str(exc),
+            "symbol": symbol.upper(),
+        }
+
+
+def _selection_action_idx(selection: dict[str, Any]) -> int:
+    raw = selection.get("actionIdx")
+    if raw is None:
+        raw = selection.get("signalDirection") or selection.get("direction") or selection.get("action")
+    if isinstance(raw, str):
+        action_map: dict[str, int] = {
+            "buy": 0,
+            "long": 0,
+            "sell": 1,
+            "short": 1,
+            "hold": 2,
+            "flat": 2,
+            "neutral": 2,
+            "observe": 2,
+        }
+        return action_map.get(raw.lower(), 2)
+    try:
+        idx = int(raw)
+    except (TypeError, ValueError):
+        return 2
+    return max(0, min(2, idx))
+
+
+def _historical_pnl_series(memory_context: dict[str, Any] | None) -> list[float]:
+    if not memory_context:
+        return []
+    series: list[float] = []
+    for item in memory_context.get("retrieved", []):
+        if not isinstance(item, dict):
+            continue
+        if item.get("pnlBps") is not None:
+            series.append(_safe_float(item.get("pnlBps"), 0.0))
+    return series[-60:]
+
+
+def _safe_float(value: Any, default: float) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default

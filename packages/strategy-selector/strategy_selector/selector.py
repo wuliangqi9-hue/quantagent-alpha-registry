@@ -429,12 +429,17 @@ def _safe_parse_llm_response(raw_payload: Any, defaults: LLMStrategyDecision) ->
     try:
         return LLMStrategyDecision.model_validate(merged)
     except ValidationError:
+        try:
+            confidence = float(parsed.get("confidence", defaults.confidence))
+        except (TypeError, ValueError):
+            confidence = defaults.confidence
+
         safe = defaults.model_dump()
         safe.update(
             {
                 "strategyId": str(parsed.get("strategyId") or defaults.strategyId),
                 "signalDirection": str(parsed.get("signalDirection") or defaults.signalDirection),
-                "confidence": parsed.get("confidence", defaults.confidence),
+                "confidence": confidence,
                 "topDrivers": parsed.get("topDrivers") if isinstance(parsed.get("topDrivers"), list) else defaults.topDrivers,
                 "riskWarnings": parsed.get("riskWarnings") if isinstance(parsed.get("riskWarnings"), list) else defaults.riskWarnings,
                 "explanation": str(parsed.get("explanation") or defaults.explanation),
@@ -617,7 +622,8 @@ def select_strategy(
     )
 
     if multi_agent_context:
-        critic_warnings = multi_agent_context.get("riskCriticWarnings", [])
+        raw_critic_warnings = multi_agent_context.get("riskCriticWarnings", [])
+        critic_warnings = raw_critic_warnings if isinstance(raw_critic_warnings, list) else []
         warnings = [*warnings, *critic_warnings][:8]
         drivers = [*drivers, "QuantAgent multi-agent context synthesized indicator, flow, memory, and reputation reports."][:8]
 
@@ -659,18 +665,6 @@ def select_strategy(
         confidence = round(min(0.95, confidence + 0.04), 2)
         drivers = [*drivers, f"FinPos composite score {finpos_reward['composite_score']:.3f} supports confidence increase."]
 
-    bench = STRATEGY_BENCHMARKS[_benchmark_id(strategy_id)]
-    regime_key = f"{regime}_sharpe" if f"{regime}_sharpe" in bench else "range_sharpe"
-    sharpe = bench.get(regime_key, bench.get("range_sharpe", 0.0))
-
-    benchmark_summary = {
-        "regimeSharpe": sharpe,
-        "winRate": bench["win_rate"],
-        "maxDrawdownPct": bench["max_drawdown_pct"],
-        "note": "Historical benchmark from prior QuantAgent/Hummingbot workflow experiments.",
-    }
-    chart = build_benchmark_chart(ohlcv_df, strategy_id)
-
     # AlphaGPT：默认生成组合因子公式；若上游 LLM 返回合法 JSON，则覆盖这些学术字段。
     default_decision = LLMStrategyDecision(
         strategyId=strategy_id,
@@ -695,10 +689,21 @@ def select_strategy(
     # 策略 ID 仍以确定性风控结果为主，避免 LLM 返回未知策略导致 benchmark 或执行层崩溃。
     if llm_decision.strategyId in STRATEGIES and risk_profile != "conservative":
         strategy_id = llm_decision.strategyId
-        bench = STRATEGY_BENCHMARKS[_benchmark_id(strategy_id)]
         meta = STRATEGIES[strategy_id]
     else:
         meta = STRATEGIES[strategy_id]
+
+    bench = STRATEGY_BENCHMARKS[_benchmark_id(strategy_id)]
+    regime_key = f"{regime}_sharpe" if f"{regime}_sharpe" in bench else "range_sharpe"
+    sharpe = bench.get(regime_key, bench.get("range_sharpe", 0.0))
+
+    benchmark_summary = {
+        "regimeSharpe": sharpe,
+        "winRate": bench["win_rate"],
+        "maxDrawdownPct": bench["max_drawdown_pct"],
+        "note": "Historical benchmark from prior QuantAgent/Hummingbot workflow experiments.",
+    }
+    chart = build_benchmark_chart(ohlcv_df, _benchmark_id(strategy_id))
 
     position_plan = _build_position_plan(
         direction=direction,

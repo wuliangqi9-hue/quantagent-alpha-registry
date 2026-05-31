@@ -6,6 +6,7 @@ from .agent_card import agent_registry_identifier, build_agent_card
 from .config import (
     AGENT_ID,
     AGENT_URI,
+    AGENT_CARD_BASE_URL,
     ERC8004_IDENTITY_REGISTRY_ADDRESS,
     ERC8004_REPUTATION_REGISTRY_ADDRESS,
     ERC8004_VALIDATION_REGISTRY_ADDRESS,
@@ -26,7 +27,7 @@ class ERC8004Adapter:
     VERSION = "erc8004-adapter-1.0.0"
 
     def __init__(self, *, api_base: str = "") -> None:
-        self.api_base = api_base or "http://localhost:8000"
+        self.api_base = (api_base or AGENT_CARD_BASE_URL).rstrip("/")
 
     def identity_status(self) -> dict[str, Any]:
         return {

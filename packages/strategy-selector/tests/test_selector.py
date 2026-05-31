@@ -34,6 +34,7 @@ from strategy_selector.selector import (
     STRATEGIES,
     STRATEGY_BENCHMARKS,
 )
+from strategy_selector.benchmark import build_benchmark_chart
 
 
 def _make_ohlcv_df(rows: int = 120) -> pd.DataFrame:
@@ -236,6 +237,11 @@ class TestSafeParseLLMResponse(unittest.TestCase):
         payload = {"riskProfileState": "invalid"}
         result = _safe_parse_llm_response(payload, self.defaults)
         self.assertEqual(result.riskProfileState, "neutral")
+
+    def test_invalid_confidence_string_returns_defaults(self) -> None:
+        payload = {"confidence": "high_confidence"}
+        result = _safe_parse_llm_response(payload, self.defaults)
+        self.assertEqual(result.confidence, self.defaults.confidence)
 
 
 # -- reputation / reflection / memory guardrails --------------------------
@@ -590,6 +596,25 @@ class TestSelectStrategyEndToEnd(unittest.TestCase):
         result = select_strategy("BTC", summary, self.df)
         self.assertEqual(result["alphaFormula"], "0.4*momentum + 0.3*trend")
 
+    def test_llm_strategy_override_rebuilds_benchmark_chart(self) -> None:
+        summary = {
+            "factors": [{"id": "momentum", "score": -0.55, "missing": False}],
+            "llmStrategyDecision": {
+                "strategyId": "supertrend",
+                "confidence": 0.80,
+            },
+        }
+        result = select_strategy("BTC", summary, self.df)
+        self.assertEqual(result["strategyId"], "supertrend")
+        self.assertEqual(
+            result["benchmarkSummary"]["winRate"],
+            STRATEGY_BENCHMARKS["supertrend"]["win_rate"],
+        )
+        self.assertEqual(
+            result["benchmarkChart"]["evidence"]["win_rate"],
+            STRATEGY_BENCHMARKS["supertrend"]["win_rate"],
+        )
+
     def test_with_multi_agent_risk_critic(self) -> None:
         summary = _make_factor_summary([("momentum", 0.45), ("trend", 0.55)])
         result = select_strategy(
@@ -630,6 +655,11 @@ class TestSelectStrategyEndToEnd(unittest.TestCase):
         summary = _make_factor_summary([("momentum", 0.3)])
         result = select_strategy("BTC", summary, small_df)
         self.assertIn("benchmarkChart", result)
+
+    def test_empty_benchmark_chart_handled(self) -> None:
+        chart = build_benchmark_chart(pd.DataFrame({"close": []}), "supertrend")
+        self.assertEqual(chart["prices"], [])
+        self.assertEqual(chart["markers"], [])
 
     def test_strategies_dict_has_required_keys(self) -> None:
         for sid in STRATEGIES:

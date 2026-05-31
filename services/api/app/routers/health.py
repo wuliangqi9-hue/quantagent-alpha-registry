@@ -8,6 +8,7 @@ from ..config import (
     AGENT_ID,
     ATLAS_OPRO_ENABLED,
     CHAIN_CONFIGURED,
+    CHAIN_WRITE_AUTH_CONFIGURED,
     CONTRACT_ADDRESS,
     ERC8004_IDENTITY_REGISTRY_ADDRESS,
     ERC8004_REPUTATION_REGISTRY_ADDRESS,
@@ -58,9 +59,16 @@ async def health_check():
         "status": "ok",
         "contractConfigured": bool(CONTRACT_ADDRESS),
         "walletConfigured": CHAIN_CONFIGURED,
+        "onchainWriteUnlocked": bool(CHAIN_CONFIGURED and CHAIN_WRITE_AUTH_CONFIGURED),
         "agentId": AGENT_ID or None,
         "agentConfigured": AGENT_ID > 0,
-        "proofMode": "real-onchain" if CHAIN_CONFIGURED else "demo-proof",
+        "proofMode": (
+            "onchain-write-ready"
+            if CHAIN_CONFIGURED and CHAIN_WRITE_AUTH_CONFIGURED
+            else "onchain-write-locked"
+            if CHAIN_CONFIGURED
+            else "demo-proof"
+        ),
         "supportedAssets": SUPPORTED_ASSETS,
         "apiPrefixes": ["", "/api"],
         # ---- 新增模块状态 ----

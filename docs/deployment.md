@@ -72,11 +72,13 @@ uvicorn services.api.app.main:app --host 0.0.0.0 --port $PORT
 Required only for real Mantle recording:
 
 ```text
-MANTLE_RPC_URL=https://rpc.mantle.xyz
-MANTLE_CHAIN_ID=5000
-MANTLE_EXPLORER_BASE=https://explorer.mantle.xyz
+MANTLE_RPC_URL=https://rpc.sepolia.mantle.xyz
+MANTLE_CHAIN_ID=5003
+MANTLE_EXPLORER_BASE=https://explorer.sepolia.mantle.xyz
 MANTLE_PRIVATE_KEY=<funded private key>
 MANTLE_ENABLE_ONCHAIN_WRITES=true
+MANTLE_ALLOW_PUBLIC_WRITES=false
+ONCHAIN_WRITE_AUTH_TOKEN=<random write token for trusted sessions>
 SIGNAL_REGISTRY_ADDRESS=<deployed SignalRegistry address>
 AGENT_ID=<Registered event agentId>
 VALIDATOR_ADDRESS=<validator wallet or service address>
@@ -87,9 +89,12 @@ When these are missing, the app uses demo-proof mode. Demo-proof mode is useful
 for development and backup demos, but the final submission should include at
 least one real Mantle explorer link if possible.
 
-Keep `MANTLE_ENABLE_ONCHAIN_WRITES=false` on public preview deployments until
-you are ready to broadcast real transactions. This protects the funded wallet
-from public API calls.
+Keep `MANTLE_ALLOW_PUBLIC_WRITES=false` on public preview deployments. If
+`MANTLE_ENABLE_ONCHAIN_WRITES=true` and the private key is present, the API can
+sign Mantle transactions, but write endpoints stay locked unless
+`MANTLE_ALLOW_PUBLIC_WRITES=true` or a trusted client sends
+`x-quantagent-write-token: <ONCHAIN_WRITE_AUTH_TOKEN>`. This protects the
+funded wallet from public API calls.
 
 Optional but recommended:
 
